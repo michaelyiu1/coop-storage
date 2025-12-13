@@ -3,6 +3,7 @@ import (
 	"fmt"
 	"encoding/json"
 	"github.com/dgraph-io/badger/v4"
+	"log"
 
 )
 // In this module: logic to interface between the client and the metadata server
@@ -24,7 +25,7 @@ func (self *ReadRequest) Read(user string) (error) {
 	}
 
 	if err != nil {
-		fmt.Printf("ReadRequest.Read: Failed to read key %s: %v\n", user, err)
+		log.Printf("ReadRequest.Read: Failed to read key %s: %v\n", user, err)
 		return err
 	}
 
@@ -40,13 +41,15 @@ func (self *ReadRequest) Read(user string) (error) {
 		return nil
 	}
 
+	// fish the metadata objects to get the filenames
 	// TODO: use goroutines to speed up
 	for _, val := range(currFiles) {
 		var currMeta MetaObject
 		key := []byte(fmt.Sprintf("objid:%s", val))
+		// TODO: again this should be currMeta.Read
 		currMetaJSON, err := DBInst.Read(key)
 		if err != nil {
-			fmt.Printf("ReadRequest.Read: Failed to read key %s: %v\n", string(key), err)
+			log.Printf("ReadRequest.Read: Failed to read key %s: %v\n", string(key), err)
 			return err
 		}
 	

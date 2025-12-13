@@ -13,11 +13,10 @@ RUN go mod download
 # Copy source code
 COPY . .
 
-# Create uploads directory
-RUN mkdir -p /app/uploads
+RUN mkdir -p /app/store
 
 # Expose port
 EXPOSE 8280
 
 # Use air for live reload
-CMD ["CompileDaemon", "--build=go build -o main .", "--command=./main"]
+CMD ["CompileDaemon", "--build=go build -o main.o .", "--command=./main.o"]

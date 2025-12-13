@@ -3,10 +3,12 @@ package main
 import (
 	"os"
 	"strconv"
+	"fmt"
 )
 
 var (
 	PORT            string
+	META_PORT		string
 	UPLOADDIR       string
 	MAXUPLOADSIZE   int64
 	METADATASERVERURL string
@@ -14,7 +16,8 @@ var (
 
 func init() {
 	PORT = getEnv("PORT", "8280")
-	UPLOADDIR = getEnv("UPLOAD_DIR", "./uploads")
+	META_PORT = getEnv("PORT", "7676")
+	UPLOADDIR = getEnv("UPLOAD_DIR", "./store")
 	
 	maxSizeStr := getEnv("MAX_UPLOAD_SIZE", "10485760")
 	maxSize, err := strconv.ParseInt(maxSizeStr, 10, 64)
@@ -23,7 +26,7 @@ func init() {
 	}
 	MAXUPLOADSIZE = maxSize
 	
-	METADATASERVERURL = getEnv("METADATA_SERVER_URL", "http://localhost:8080")
+	METADATASERVERURL = getEnv("METADATA_SERVER_URL", fmt.Sprintf("http://metadata-server:%s", META_PORT))
 }
 
 func getEnv(key, defaultValue string) string {

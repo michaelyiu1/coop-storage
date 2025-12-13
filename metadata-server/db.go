@@ -91,3 +91,37 @@ func (self *DB) Read(key []byte) ([]byte, error){
 
 	return retrievedValue, nil
 }
+
+func (self *DB) Delete(key []byte) error {
+    log.Printf("DELETE: Attempting to delete key: %s (bytes: %v)", string(key), key)
+
+    // 1. Start an Update transaction
+    err := self.db.Update(func(txn *badger.Txn) error {
+        // 2. Perform the delete operation within the transaction
+        err := txn.Delete(key)
+        if err != nil {
+            // Log the error if the deletion fails (e.g., I/O error, not necessarily key not found)
+            log.Printf("DELETE: Error deleting key %s: %v", string(key), err)
+            return err
+        }
+        log.Printf("DELETE: Successfully marked key for deletion: %s", string(key))
+        return nil // Returning nil commits the transaction
+    })
+
+    // Handle transaction commit failure (e.g., conflict, write error)
+    if err != nil {
+        log.Printf("DELETE: Transaction failed for key %s: %v", string(key), err)
+        return err
+    }
+    
+    // 3. Explicitly sync the database to ensure durability on disk
+    // Note: You can omit this if you are relying on BadgerDB's default configuration 
+    // or are optimizing for performance over immediate durability.
+    if err := self.db.Sync(); err != nil {
+        log.Printf("DELETE: Sync failed for key %s: %v", string(key), err)
+        return err
+    }
+    
+    log.Printf("DELETE: Transaction committed and synced for key: %s", string(key))
+    return nil
+}

@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"net/http"
+	"log"
 )
 
 type ObjectFile struct {
@@ -25,9 +26,7 @@ type MetadataPOST struct {
 
 func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) (error) {
 	// TODO: parallel writes
-
 	id := uuid.New().String()
-
 	destPath := filepath.Join(UPLOADDIR, id)
 	dest, err := os.Create(destPath)
 	if err != nil {
@@ -51,10 +50,21 @@ func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) (
 		return fmt.Errorf("failed to marshal metadata: %w", err)
 	}
 
-	resp, err := http.Post(METADATASERVERURL, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to contact metadata server: %w", err)
+	endpoint := fmt.Sprintf("%s/write_meta", METADATASERVERURL)
+	resp, perr := http.Post(endpoint, "application/json", bytes.NewBuffer(jsonData))
+	log.Printf("just sent a post to %s", endpoint)
+	if perr != nil {
+		return fmt.Errorf("failed to POST to metadata server: %w", perr)
 	}
+	// Read the body into a byte slice
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Convert the byte slice to a string for logging/printing
+	bodyString := string(bodyBytes)
+	log.Printf("Hello %s", bodyString)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {

@@ -8,36 +8,29 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"log"
 )
 
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run client.go <server-url> <jpeg-file-path>")
-		fmt.Println("Example: go run client.go https://server.com/upload photo.jpg")
 		os.Exit(1)
 	}
 
-	serverBase := os.Args[1]
-	filePath := os.Args[2]
+	serverBase := "http://localhost:8280"
+	filePath := os.Args[1]
 	serverURL := fmt.Sprintf("%s/upload", serverBase)
 
 	// Validate file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		fmt.Printf("Error: File '%s' does not exist\n", filePath)
+		log.Printf("Error: File '%s' does not exist\n", filePath)
 		os.Exit(1)
 	}
 
-	// Validate file extension
-	ext := filepath.Ext(filePath)
-	if ext != ".jpg" && ext != ".jpeg" {
-		fmt.Println("Error: Only JPEG files (.jpg or .jpeg) are supported")
-		os.Exit(1)
-	}
-
-	fmt.Printf("Uploading file: %s\n", filePath)
+	log.Printf("Uploading file: %s\n", filePath)
 	
 	if err := uploadFile(filePath, serverURL); err != nil {
-		fmt.Printf("Upload failed: %v\n", err)
+		log.Printf("Upload failed: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -100,6 +93,6 @@ func uploadFile(filePath, serverURL string) error {
 		return fmt.Errorf("server returned error (status %d): %s", resp.StatusCode, string(responseBody))
 	}
 
-	fmt.Printf("Server response: %s", string(responseBody))
+	log.Printf("Server response: %s", string(responseBody))
 	return nil
 }

@@ -17,4 +17,4 @@ COPY . .
 EXPOSE 7676
 
 # Use air for live reload
-CMD ["CompileDaemon", "--build=go build -o main .", "--command=./main"]
+CMD ["CompileDaemon", "--build=go build -o main.o .", "--command=./main.o"]

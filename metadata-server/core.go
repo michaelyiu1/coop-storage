@@ -3,8 +3,9 @@ import (
 	"fmt"
 	"encoding/json"
 	"github.com/dgraph-io/badger/v4"
+	"log"
+	"iter"	
 )
-
 
 // TODO: don;t save ID in column, waste of space
 type MetaObject struct {
@@ -22,12 +23,16 @@ type MetaObject struct {
 }
 
 func (o *MetaObject) Read() (error) {
+	if (o.ID == "") {
+		return fmt.Errorf("MetaObject needs an id to be Read")
+	}
 	oKey := []byte(fmt.Sprintf("objid:%s", o.ID))
-	fmt.Printf("MetaObject.Read: ID=%s, searching for key: %s\n", o.ID, string(oKey))
+	log.Printf("MetaObject.Read: ID=%s, searching for key: %s\n", o.ID, string(oKey))
+	// TODO: this seems very wrong, try to deserialize directly to self instead, given
 	var currMeta MetaObject
 	currMetaJSON, err := DBInst.Read(oKey)
 	if err != nil {
-		fmt.Printf("MetaObject.Read: Failed to read key %s: %v\n", string(oKey), err)
+		log.Printf("MetaObject.Read: Failed to read key %s: %v\n", string(oKey), err)
 		return err
 	}
 
@@ -47,16 +52,17 @@ func (o *MetaObject) Read() (error) {
 }
 
 func (o *MetaObject) Write() (error) {
+	//TODO: check that file name is unique
 	// object index
 	jsonStr, err := json.Marshal(o)
 	if err != nil {
-		fmt.Printf("MetaObject.Write: Failed to marshal object: %v\n", err)
+		log.Printf("MetaObject.Write: Failed to marshal object: %v\n", err)
 		return err
 	}
 	oKey := fmt.Sprintf("objid:%s", o.ID)
-	fmt.Printf("MetaObject.Write: ID=%s, writing key: %s\n", o.ID, oKey)
+	log.Printf("MetaObject.Write: ID=%s, writing key: %s\n", o.ID, oKey)
 	if err := DBInst.Update([]byte(oKey), jsonStr); err != nil {
-		fmt.Printf("MetaObject.Write: Failed to update key %s: %v\n", oKey, err)
+		log.Printf("MetaObject.Write: Failed to update key %s: %v\n", oKey, err)
 		return err
 	}
 
@@ -80,4 +86,74 @@ func (o *MetaObject) Write() (error) {
 	DBInst.Update(uKey, currFilesJSON)
 
 	return nil
+}
+
+func StartGarbageCollector() (error) {
+	// 1. loop over all keys that start with "objid:"
+	// 2. decode 
+	// 3. DBInst.delete() if deleteFlag is true
+	return nil
+}
+
+
+type ObjPair struct {
+    FileName   string
+    ID string
+}
+
+func IDNameTupeIterator(user string) iter.Seq2[ObjPair, error] {
+	return func(yield func(ObjPair, error) bool) {
+		uKey := []byte(fmt.Sprintf("user:%s", user))
+		
+		var currFiles []string
+		currFilesJSON, err := DBInst.Read(uKey)
+		if err == badger.ErrKeyNotFound {
+			currFilesJSON = []byte("[]")
+		}
+		
+		if err != nil {
+			log.Printf("ReadRequest.Read: Failed to read key %s: %v\n", user, err)
+			yield(ObjPair{}, err)
+			return
+		}
+		
+		errj := json.Unmarshal([]byte(currFilesJSON), &currFiles) 
+		
+		if errj != nil {
+			fmt.Println("Error unmarshalling JSON:", err)
+			yield(ObjPair{}, ErrOnWrite)
+			return
+		}
+		
+		if len(currFiles) == 0 {
+			yield(ObjPair{}, nil)
+			return
+		}
+		
+		// fish the metadata objects to get the filenames
+		// TODO: use goroutines to speed up
+		for _, val := range(currFiles) {
+			var currMeta MetaObject
+			key := []byte(fmt.Sprintf("objid:%s", val))
+			// TODO: again this should be currMeta.Read
+			currMetaJSON, err := DBInst.Read(key)
+			if err != nil {
+				// log.Printf("ReadRequest.Read: Failed to read key %s: %v\n", string(key), err)
+				yield(ObjPair{}, fmt.Errorf("ReadRequest.Read: Failed to read key %s: %v\n", string(key), err))
+				return
+			}
+		
+			errj := json.Unmarshal([]byte(currMetaJSON), &currMeta) 
+		
+			if errj != nil {
+				yield(ObjPair{}, fmt.Errorf("ReadRequest.Read: Error unmarshalling JSON:", err))
+				return
+			}
+	
+			if !yield(ObjPair{currMeta.FileName, val}, nil) {
+				return
+			}
+		}
+	
+	}
 }

@@ -24,11 +24,16 @@ type ReadFilter struct {
 func main() {
 	InitDb()
 	defer CloseDb()
+	// client facing
+	http.HandleFunc("/write_object", requestWriteObject) // maybe this one is just auth?
+	http.HandleFunc("/get_meta", getMetaForUser)
+	
+	// called by osd
 	http.HandleFunc("/write_meta", createMetaObject)
+	http.HandleFunc("/delete_meta", DeleteObject)
+	// dev only
 	http.HandleFunc("/read_meta", readMetaObject)
-	http.HandleFunc("/write_object", requestWriteObject)
-	http.HandleFunc("/read_object", requestReadObject)
-	fmt.Printf("Server starting on PORT %s\n", PORT)
+	log.Printf("Server starting on PORT %s\n", PORT)
 	
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", PORT), nil); err != nil {
 		log.Fatal("Server failed to start:", err)
@@ -38,6 +43,8 @@ func main() {
 // Called by client
 func requestWriteObject(w http.ResponseWriter, r *http.Request) {
 	//TODO: consume an API token to verify access
+	// TODO: figure out if what other useful data this controller can return
+	//  is really necessary 
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -48,7 +55,7 @@ func requestWriteObject(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func requestReadObject(w http.ResponseWriter, r *http.Request) {
+func getMetaForUser(w http.ResponseWriter, r *http.Request) {
 	//TODO: consume an API token to verify access
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -56,6 +63,8 @@ func requestReadObject(w http.ResponseWriter, r *http.Request) {
 	}
 	// TODO: use ReadFilter
 	page := 0 //r.URL.Query().Get("page")
+
+	// TODO: get this from auth
 	userTMP := r.URL.Query().Get("user")
 
 	// body, err := io.ReadAll(r.Body)
@@ -81,9 +90,26 @@ func requestReadObject(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write(jo)
-
 }
 
+func DeleteObject(w http.ResponseWriter, r *http.Request) {
+	//TODO: consume an API token to verify access
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	// TODO: use ReadFilter
+	objId := r.URL.Query().Get("id")
+	var currMeta MetaObject
+	currMeta.ID = objId
+
+	currMeta.DeleteFlag = true
+
+	currMeta.Write()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("success"))
+}
 
 //called by the OSD Server
 func createMetaObject(w http.ResponseWriter, r *http.Request) {
@@ -92,6 +118,7 @@ func createMetaObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	log.Printf("createMetaObject invoked")
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Failed to read request body", http.StatusBadRequest)

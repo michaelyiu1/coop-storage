@@ -1,8 +1,11 @@
 # README
 
 ```bash
-├── cli-client # a command line tool to test uploading files
-└── server     # file API and storage server
+.
+├── cli-client      # a command line tool to test uploading files
+├── devops          # Docker compose, TBD nginx stuff
+├── metadata-server # metadata and auth endpoints 
+└── osd-server      # Contains file data
 ```
 
 To get started:
@@ -14,17 +17,25 @@ $ docker compose up -d --force-recreate --build
 # TODO:
 ## Security
 - encrypt files
-- User buckets (replicated across nodes)
+- User buckets (replicated across nodes?)
     - A user shall access a bucket only if it's theirs
 - Auth flow:
     - Client pings Metadata server
     - Metadata server issues token, mappings etc
     - Client pings OSD server
 
+
 - rate limiting (with Nginx)
-## UI
+## UX
 - upload multiple files form (make super optimized)
 - file explorer
+- find how to stream multiple fiels at once?
+- shareable collections (e.g., movies etc)
+
+
+# WILO
+- delete job
+- download route
 
 # Resources
 - Series of articles on [replication](https://www.enjoyalgorithms.com/blog/storage-and-redundancy)

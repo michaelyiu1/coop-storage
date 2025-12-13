@@ -5,3 +5,5 @@
 *.sum
 */db/*
 .DS_Store
+*/main
+main.o

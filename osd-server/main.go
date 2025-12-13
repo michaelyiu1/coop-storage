@@ -23,11 +23,11 @@ func main() {
 		fmt.Fprint(w, "Hello, world!")
 	})
 	http.HandleFunc("/preview/", previewHandler)
-	fmt.Printf("Server starting on PORT %s\n", PORT)
-	fmt.Printf("Upload endpoint: http://localhost%s/upload\n", PORT)
-	fmt.Printf("Download endpoint: http://localhost%s/download/{filename}\n", PORT)
+	log.Printf("Server starting on PORT %s\n", PORT)
+	log.Printf("Upload endpoint: http://localhost%s/upload\n", PORT)
+	log.Printf("Download endpoint: http://localhost%s/download/{filename}\n", PORT)
 	
-	if err := http.ListenAndServe(fmt.Sprint(":%i", PORT), nil); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%s", PORT), nil); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
 }
@@ -66,7 +66,13 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	o := ObjectFile{}
-	o.Write(&file, header)
+	err = o.Write(&file, header)
+	if err != nil {
+		log.Printf("bad write %s", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
 
 	log.Printf("File uploaded successfully: %s\n", header.Filename)
 	
@@ -104,8 +110,8 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	// Set headers
-	w.Header().Set("Content-Type", "application/octet-stream")
 	// TODO switch for certain types to be able to preview e.g., image/jpeg
+	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
 
 	// Copy file to response
