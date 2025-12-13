@@ -16,7 +16,7 @@ type MetaObject struct {
 	FileType   string `json:"fileType"`
 	FileName   string `json:"fileName"`
 	DeleteFlag bool   `json:"deleteFlag"`
-
+	Version    int 	  `json:"version"`
 	// TODO: implement these for file integrity checks and multipart upload
 	// offset int32
 	// length int32
@@ -66,32 +66,13 @@ func (o *MetaObject) Write() (error) {
 		return err
 	}
 
-	// user index
-	uKey := []byte(fmt.Sprintf("user:%s", o.Owner))
-	var currFiles []string
-	currFilesJSON, err := DBInst.Read(uKey)
-	if err == badger.ErrKeyNotFound {
-		currFilesJSON = []byte("[]")
-	}
-
-	errj := json.Unmarshal([]byte(currFilesJSON), &currFiles) 
-
-	if errj != nil {
-		fmt.Println("Error unmarshalling JSON:", err)
-		return ErrOnWrite
-	}
-
-	currFiles = append(currFiles, o.ID)
-	currFilesJSON, err = json.Marshal(currFiles)
-	DBInst.Update(uKey, currFilesJSON)
+	UpdateUserIndex(o.Owner, o.ID, Add)
 
 	return nil
 }
 
 func StartGarbageCollector() (error) {
-	// 1. loop over all keys that start with "objid:"
-	// 2. decode 
-	// 3. DBInst.delete() if deleteFlag is true
+	DBInst.db.RunValueLogGC(0.5)
 	return nil
 }
 
@@ -101,7 +82,7 @@ type ObjPair struct {
     ID string
 }
 
-func IDNameTupeIterator(user string) iter.Seq2[ObjPair, error] {
+func IDNameTupleIterator(user string) iter.Seq2[ObjPair, error] {
 	return func(yield func(ObjPair, error) bool) {
 		uKey := []byte(fmt.Sprintf("user:%s", user))
 		
@@ -156,4 +137,41 @@ func IDNameTupeIterator(user string) iter.Seq2[ObjPair, error] {
 		}
 	
 	}
+}
+
+// UTILS
+// user index stuff
+type UpdateArrayMode int
+
+const  (
+	Add UpdateArrayMode = iota
+	Remove
+)
+
+func UpdateUserIndex(user string, objId string, mode UpdateArrayMode) (error) {
+	uKey := []byte(fmt.Sprintf("user:%s", user))
+	currFiles :=  NewSet[string]()
+	currFilesJSON, err := DBInst.Read(uKey)
+	if err == badger.ErrKeyNotFound {
+		currFilesJSON = []byte("[]")
+	}
+
+	errj := json.Unmarshal([]byte(currFilesJSON), &currFiles) 
+
+	if errj != nil {
+		fmt.Println("Error unmarshalling JSON:", err)
+		return ErrOnWrite
+	}
+
+	switch mode {
+	case Add:
+		currFiles.Add(objId)
+	case Remove:
+		currFiles.Remove(objId)
+
+	}
+	currFilesJSON, err = json.Marshal(currFiles)
+	DBInst.Update(uKey, currFilesJSON)
+	
+	return nil
 }

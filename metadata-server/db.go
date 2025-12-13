@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"github.com/dgraph-io/badger/v4"
+	"fmt"
+	"encoding/json"
 )
 
 
@@ -60,6 +62,61 @@ func (self *DB) Update(key []byte, val []byte) (error) {
 	return nil
 }
 
+// TODO: figure out better abstraction for this, maybe a UpdateWithVersion
+func (self *DB) UpdateObj(incomingObj *MetaObject) error {
+    key := []byte(incomingObj.ID)
+
+    err := self.db.Update(func(txn *badger.Txn) error {
+        // 1. GET current data from DB
+        item, err := txn.Get(key)
+        
+        // --- SCENARIO A: New Item (Create) ---
+        if err == badger.ErrKeyNotFound {
+            // If the key doesn't exist, we enforce that the client expects Version 0
+            if incomingObj.Version != 0 {
+                return fmt.Errorf("conflict: item does not exist, but client sent version %d", incomingObj.Version)
+            }
+            
+            // Set first version to 1
+            incomingObj.Version = 1
+            return saveMetaToBadger(txn, key, incomingObj)
+        } else if err != nil {
+            return err // legitimate DB error
+        }
+
+        // --- SCENARIO B: Update Existing Item ---
+        
+        // 2. DECODE current data to check version
+        valBytes, err := item.ValueCopy(nil)
+        if err != nil {
+            return err
+        }
+
+        var currentObj MetaObject
+        if err := json.Unmarshal(valBytes, &currentObj); err != nil {
+            return fmt.Errorf("db corruption: failed to unmarshal existing data: %w", err)
+        }
+
+        // 3. COMPARE Versions
+        // The client says "I am updating Version X".
+        // If the DB has Version Y, and X != Y, it's a conflict.
+        if incomingObj.Version != currentObj.Version {
+            return fmt.Errorf("conflict: client has version %d, but db has version %d", 
+                incomingObj.Version, currentObj.Version)
+        }
+
+        // 4. INCREMENT and SAVE
+        incomingObj.Version = currentObj.Version + 1
+        return saveMetaToBadger(txn, key, incomingObj)
+    })
+
+    if err != nil {
+        return err
+    }
+    
+    return nil
+}
+
 func (self *DB) Read(key []byte) ([]byte, error){
 	var retrievedValue []byte
 
@@ -93,22 +150,19 @@ func (self *DB) Read(key []byte) ([]byte, error){
 }
 
 func (self *DB) Delete(key []byte) error {
-    log.Printf("DELETE: Attempting to delete key: %s (bytes: %v)", string(key), key)
-
-    // 1. Start an Update transaction
-    err := self.db.Update(func(txn *badger.Txn) error {
-        // 2. Perform the delete operation within the transaction
-        err := txn.Delete(key)
-        if err != nil {
-            // Log the error if the deletion fails (e.g., I/O error, not necessarily key not found)
-            log.Printf("DELETE: Error deleting key %s: %v", string(key), err)
-            return err
-        }
-        log.Printf("DELETE: Successfully marked key for deletion: %s", string(key))
+	
+	err := self.db.Update(func(txn *badger.Txn) error {
+			
+		log.Printf("DELETE: Attempting to delete key: %s (bytes: %v)", string(key), key)
+		err := txn.Delete(key)
+		if err != nil {
+			log.Printf("DELETE: Error deleting key %s: %v", string(key), err)
+			return err
+		}
+		log.Printf("DELETE: Successfully marked key for deletion: %s", string(key))
         return nil // Returning nil commits the transaction
     })
 
-    // Handle transaction commit failure (e.g., conflict, write error)
     if err != nil {
         log.Printf("DELETE: Transaction failed for key %s: %v", string(key), err)
         return err
@@ -124,4 +178,16 @@ func (self *DB) Delete(key []byte) error {
     
     log.Printf("DELETE: Transaction committed and synced for key: %s", string(key))
     return nil
+}
+
+
+// UTILS
+
+func saveMetaToBadger(txn *badger.Txn, key []byte, obj *MetaObject) error {
+    data, err := json.Marshal(obj)
+    if err != nil {
+        return fmt.Errorf("failed to marshal: %w", err)
+    }
+    // We update the entry. 
+    return txn.Set(key, data)
 }

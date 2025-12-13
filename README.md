@@ -24,6 +24,9 @@ $ docker compose up -d --force-recreate --build
     - Metadata server issues token, mappings etc
     - Client pings OSD server
 
+## Architecture
+- image preview as metadata (but maybe store those as objects too)
+
 
 - rate limiting (with Nginx)
 ## UX
@@ -31,7 +34,6 @@ $ docker compose up -d --force-recreate --build
 - file explorer
 - find how to stream multiple fiels at once?
 - shareable collections (e.g., movies etc)
-
 
 # WILO
 - delete job

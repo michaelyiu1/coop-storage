@@ -30,8 +30,8 @@ func main() {
 	
 	// called by osd
 	http.HandleFunc("/write_meta", createMetaObject)
-	http.HandleFunc("/delete_meta", DeleteObject)
-	// dev only
+	http.HandleFunc("/update_meta", UpdateMetaObject)
+	// dev only, reads full object
 	http.HandleFunc("/read_meta", readMetaObject)
 	log.Printf("Server starting on PORT %s\n", PORT)
 	
@@ -92,18 +92,34 @@ func getMetaForUser(w http.ResponseWriter, r *http.Request) {
 	w.Write(jo)
 }
 
-func DeleteObject(w http.ResponseWriter, r *http.Request) {
+func UpdateMetaObject(w http.ResponseWriter, r *http.Request) {
 	//TODO: consume an API token to verify access
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	// TODO: use ReadFilter
-	objId := r.URL.Query().Get("id")
 	var currMeta MetaObject
-	currMeta.ID = objId
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+	if err := json.Unmarshal(body, &currMeta); err != nil {
+		http.Error(w, "Failed to parse JSON", http.StatusBadRequest)
+		return
+	}
 
-	currMeta.DeleteFlag = true
+	if erro := DBInst.UpdateObj(&currMeta); erro != nil {
+		http.Error(w, "Failed to update", http.StatusInternalServerError)
+		return
+	}
+	
+	// TODO: check if here we also need concurrency protection
+	if currMeta.DeleteFlag {
+		DBInst.Delete([]byte(currMeta.ID))
+		UpdateUserIndex(currMeta.Owner, currMeta.ID, Remove)
+	}
 
 	currMeta.Write()
 	w.Header().Set("Content-Type", "application/json")
