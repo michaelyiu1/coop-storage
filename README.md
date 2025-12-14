@@ -26,9 +26,14 @@ $ docker compose up -d --force-recreate --build
 
 ## Architecture
 - image preview as metadata (but maybe store those as objects too)
-
-
 - rate limiting (with Nginx)
+- distributed 
+
+## Abtraction
+- Abstract DB into objects
+- use mux
+- grpc and protobufs to share types?
+
 ## UX
 - upload multiple files form (make super optimized)
 - file explorer

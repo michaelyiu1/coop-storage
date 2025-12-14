@@ -27,16 +27,6 @@ type MetadataPOST struct {
 func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) (error) {
 	// TODO: parallel writes
 	id := uuid.New().String()
-	destPath := filepath.Join(UPLOADDIR, id)
-	dest, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("Failed to create file on server") //StatusInternalServerError
-	}
-	defer dest.Close()
-
-	if _, err := io.Copy(dest, *file); err != nil {
-		return fmt.Errorf("Failed to save file") //StatusInternalServerError
-	}
 
 	// write to metadata server
 	metadata := MetadataPOST{
@@ -56,16 +46,26 @@ func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) (
 	if perr != nil {
 		return fmt.Errorf("failed to POST to metadata server: %w", perr)
 	}
-	// Read the body into a byte slice
+
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
-
-	// Convert the byte slice to a string for logging/printing
 	bodyString := string(bodyBytes)
 	log.Printf("Hello %s", bodyString)
 	defer resp.Body.Close()
+
+	// create file if all is well 
+	destPath := filepath.Join(UPLOADDIR, id)
+	dest, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("Failed to create file on server") //StatusInternalServerError
+	}
+	defer dest.Close()
+
+	if _, err := io.Copy(dest, *file); err != nil {
+		return fmt.Errorf("Failed to save file") //StatusInternalServerError
+	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("metadata server returned status: %d", resp.StatusCode)

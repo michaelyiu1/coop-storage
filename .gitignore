@@ -7,3 +7,5 @@
 .DS_Store
 */main
 main.o
+osd-server/store/*
+tests/data/*

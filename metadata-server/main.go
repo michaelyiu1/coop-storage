@@ -26,13 +26,14 @@ func main() {
 	defer CloseDb()
 	// client facing
 	http.HandleFunc("/write_object", requestWriteObject) // maybe this one is just auth?
-	http.HandleFunc("/get_meta", getMetaForUser)
+	http.HandleFunc("/prepare_osd_request", prepareOSDRequest)
 	
 	// called by osd
 	http.HandleFunc("/write_meta", createMetaObject)
 	http.HandleFunc("/update_meta", UpdateMetaObject)
-	// dev only, reads full object
+	// dev only
 	http.HandleFunc("/read_meta", readMetaObject)
+	http.HandleFunc("/run_gc", runGc)
 	log.Printf("Server starting on PORT %s\n", PORT)
 	
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", PORT), nil); err != nil {
@@ -55,7 +56,8 @@ func requestWriteObject(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func getMetaForUser(w http.ResponseWriter, r *http.Request) {
+// Helps client retrieve or update objects on OSD
+func prepareOSDRequest(w http.ResponseWriter, r *http.Request) {
 	//TODO: consume an API token to verify access
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -78,9 +80,9 @@ func getMetaForUser(w http.ResponseWriter, r *http.Request) {
 	// 	return
 	// }
 
-	var rr ReadRequest
+	var rr OSDGuide
 	rr.PageNum = page
-
+	//TODO: if user not found, return 404
 	rr.Read(userTMP)
 	jo, err := json.Marshal(rr)
 	if err != nil {
@@ -92,9 +94,11 @@ func getMetaForUser(w http.ResponseWriter, r *http.Request) {
 	w.Write(jo)
 }
 
+//TODO: shouldn't be able to edit things like owner or filetype,
+//so we shall create Base objects w/ composition to make type definition easier
 func UpdateMetaObject(w http.ResponseWriter, r *http.Request) {
 	//TODO: consume an API token to verify access
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodPatch {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -110,18 +114,21 @@ func UpdateMetaObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// TODO: create an update method on meta
 	if erro := DBInst.UpdateObj(&currMeta); erro != nil {
+		log.Printf("failed to update %v", erro)
 		http.Error(w, "Failed to update", http.StatusInternalServerError)
 		return
 	}
 	
 	// TODO: check if here we also need concurrency protection
+	// TODO: abstract away DB
 	if currMeta.DeleteFlag {
-		DBInst.Delete([]byte(currMeta.ID))
+		log.Println("Delete detected")
+		DBInst.Delete([]byte(fmt.Sprintf("objid:%s", currMeta.ID)))
 		UpdateUserIndex(currMeta.Owner, currMeta.ID, Remove)
 	}
 
-	currMeta.Write()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("success"))
@@ -154,9 +161,10 @@ func createMetaObject(w http.ResponseWriter, r *http.Request) {
 	metaObject.FileName = metaPost.FileName
 	metaObject.Owner = "placeholder" // TODO: get this from auth
 	metaObject.DeleteFlag = false
-
-	if err := metaObject.Write(); err != nil {
-		http.Error(w, "Failed to write object", http.StatusInternalServerError)
+	
+	// TODO: check if an item with same filename exists!
+	if err := metaObject.Create(); err != nil {
+		http.Error(w, "Failed to create object", http.StatusInternalServerError)
 		return
 	}
 
@@ -188,4 +196,10 @@ func readMetaObject(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write(o)
+}
+
+func runGc(w http.ResponseWriter, r *http.Request) {
+	StartGarbageCollector()
+	log.Printf("garbage collection ran")
+	w.Write([]byte("ok"))
 }

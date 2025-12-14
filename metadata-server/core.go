@@ -51,8 +51,12 @@ func (o *MetaObject) Read() (error) {
 	return nil
 }
 
-func (o *MetaObject) Write() (error) {
-	//TODO: check that file name is unique
+func (o *MetaObject) Create() (error) {
+	
+
+	//TODO: check that file name is unique for the user!
+
+
 	// object index
 	jsonStr, err := json.Marshal(o)
 	if err != nil {
@@ -66,7 +70,11 @@ func (o *MetaObject) Write() (error) {
 		return err
 	}
 
-	UpdateUserIndex(o.Owner, o.ID, Add)
+	if err:=UpdateUserIndex(o.Owner, o.ID, Add); err != nil {
+		log.Printf("Error update user index, %v", err)
+		return err
+	}
+
 
 	return nil
 }
@@ -86,14 +94,14 @@ func IDNameTupleIterator(user string) iter.Seq2[ObjPair, error] {
 	return func(yield func(ObjPair, error) bool) {
 		uKey := []byte(fmt.Sprintf("user:%s", user))
 		
-		var currFiles []string
+		currFiles :=  NewSet[string]()
 		currFilesJSON, err := DBInst.Read(uKey)
 		if err == badger.ErrKeyNotFound {
-			currFilesJSON = []byte("[]")
+			currFilesJSON = []byte("{}")
 		}
 		
 		if err != nil {
-			log.Printf("ReadRequest.Read: Failed to read key %s: %v\n", user, err)
+			log.Printf("OSDGuide.Read: Failed to read key %s: %v\n", user, err)
 			yield(ObjPair{}, err)
 			return
 		}
@@ -101,37 +109,37 @@ func IDNameTupleIterator(user string) iter.Seq2[ObjPair, error] {
 		errj := json.Unmarshal([]byte(currFilesJSON), &currFiles) 
 		
 		if errj != nil {
-			fmt.Println("Error unmarshalling JSON:", err)
+			log.Printf("Error unmarshalling JSON: %v", err)
 			yield(ObjPair{}, ErrOnWrite)
 			return
 		}
 		
-		if len(currFiles) == 0 {
+		if currFiles.Size() == 0 {
 			yield(ObjPair{}, nil)
 			return
 		}
 		
 		// fish the metadata objects to get the filenames
 		// TODO: use goroutines to speed up
-		for _, val := range(currFiles) {
+		for key, _ := range(currFiles) {
 			var currMeta MetaObject
-			key := []byte(fmt.Sprintf("objid:%s", val))
+			primaryKey := []byte(fmt.Sprintf("objid:%s", key))
 			// TODO: again this should be currMeta.Read
-			currMetaJSON, err := DBInst.Read(key)
+			currMetaJSON, err := DBInst.Read(primaryKey)
 			if err != nil {
-				// log.Printf("ReadRequest.Read: Failed to read key %s: %v\n", string(key), err)
-				yield(ObjPair{}, fmt.Errorf("ReadRequest.Read: Failed to read key %s: %v\n", string(key), err))
+				// log.Printf("OSDGuide.Read: Failed to read key %s: %v\n", string(key), err)
+				yield(ObjPair{}, fmt.Errorf("OSDGuide.Read: Failed to read key %s: %v\n", string(primaryKey), err))
 				return
 			}
 		
 			errj := json.Unmarshal([]byte(currMetaJSON), &currMeta) 
 		
 			if errj != nil {
-				yield(ObjPair{}, fmt.Errorf("ReadRequest.Read: Error unmarshalling JSON:", err))
+				yield(ObjPair{}, fmt.Errorf("OSDGuide.Read: Error unmarshalling JSON: %v", errj))
 				return
 			}
 	
-			if !yield(ObjPair{currMeta.FileName, val}, nil) {
+			if !yield(ObjPair{currMeta.FileName, string(key)}, nil) {
 				return
 			}
 		}
@@ -153,14 +161,14 @@ func UpdateUserIndex(user string, objId string, mode UpdateArrayMode) (error) {
 	currFiles :=  NewSet[string]()
 	currFilesJSON, err := DBInst.Read(uKey)
 	if err == badger.ErrKeyNotFound {
-		currFilesJSON = []byte("[]")
+		currFilesJSON = []byte("{}")
 	}
 
 	errj := json.Unmarshal([]byte(currFilesJSON), &currFiles) 
 
 	if errj != nil {
-		fmt.Println("Error unmarshalling JSON:", err)
-		return ErrOnWrite
+		log.Printf("Error unmarshalling JSON: %v", err)
+		return fmt.Errorf("UpdateUserIndex Error unmarshalling JSON")
 	}
 
 	switch mode {
@@ -170,6 +178,7 @@ func UpdateUserIndex(user string, objId string, mode UpdateArrayMode) (error) {
 		currFiles.Remove(objId)
 
 	}
+
 	currFilesJSON, err = json.Marshal(currFiles)
 	DBInst.Update(uKey, currFilesJSON)
 	
