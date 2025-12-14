@@ -1,7 +1,9 @@
 package main
 import (
 	"log"
-
+	"encoding/json"
+	"fmt"
+	"github.com/dgraph-io/badger/v4"
 )
 // In this module: logic to interface between the client and the metadata server
 
@@ -13,17 +15,20 @@ type OSDGuide struct {
 }
 
 func (self *OSDGuide) Read(user string) (error) {
-	self.IDMap = make(map[string]string)
-	
-	for o, err := range IDNameTupleIterator(user) {
-		if err != nil {
-			log.Printf("error, %v", err)
-			return err
-		}
-		if o.FileName == "" {
-			return nil
-		}
-		self.IDMap[o.FileName] = o.ID
+	objectMap :=  make(map[string]string)
+	uKey := NewDBKey(User, user)
+	objectMapJSON, err := DBInst.Read(uKey)
+	if err == badger.ErrKeyNotFound {
+		objectMapJSON = []byte("{}")
+	} else {
+		return err
 	}
+		
+	if err := json.Unmarshal([]byte(objectMapJSON), &objectMap); err != nil {
+		log.Printf("Error unmarshalling JSON: %v", err)
+		return fmt.Errorf("UpdateUserIndex Error unmarshalling JSON")
+	}
+	
+	self.IDMap = objectMap
 	return nil
 }

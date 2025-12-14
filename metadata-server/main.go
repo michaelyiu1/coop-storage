@@ -22,6 +22,9 @@ type ReadFilter struct {
 }
 
 func main() {
+	if ISDEV {
+		log.SetFlags(0)
+	}
 	InitDb()
 	defer CloseDb()
 	// client facing
@@ -114,19 +117,9 @@ func UpdateMetaObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: create an update method on meta
-	if erro := DBInst.UpdateObj(&currMeta); erro != nil {
-		log.Printf("failed to update %v", erro)
-		http.Error(w, "Failed to update", http.StatusInternalServerError)
-		return
-	}
-	
-	// TODO: check if here we also need concurrency protection
-	// TODO: abstract away DB
-	if currMeta.DeleteFlag {
-		log.Println("Delete detected")
-		DBInst.Delete([]byte(fmt.Sprintf("objid:%s", currMeta.ID)))
-		UpdateUserIndex(currMeta.Owner, currMeta.ID, Remove)
+	err = currMeta.Update()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Method not allowed, %v", err), http.StatusInternalServerError)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -162,9 +155,9 @@ func createMetaObject(w http.ResponseWriter, r *http.Request) {
 	metaObject.Owner = "placeholder" // TODO: get this from auth
 	metaObject.DeleteFlag = false
 	
-	// TODO: check if an item with same filename exists!
+
 	if err := metaObject.Create(); err != nil {
-		http.Error(w, "Failed to create object", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to create object %v", err), http.StatusInternalServerError)
 		return
 	}
 

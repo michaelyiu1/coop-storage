@@ -54,7 +54,7 @@ func uploadFile() error {
 
 	log.Printf("Uploading file: %s\n", FILEPATH)
 
-	serverURL := fmt.Sprintf("%s/upload", OSDSERVERBASE)
+	uploadEndpoint := fmt.Sprintf("%s/upload", OSDSERVERBASE)
 
 	// Open the file
 	file, err := os.Open(FILEPATH)
@@ -82,11 +82,22 @@ func uploadFile() error {
 		return fmt.Errorf("failed to close writer: %w", err)
 	}
 
-	httpRequest("POST", serverURL, body, writer)
+	objId, err := httpRequest("POST", uploadEndpoint, body, writer)
+	if err != nil {
+		return err
+	}
 	fmt.Println("Upload completed successfully!")
 
 	//TODO: check if metadata server is populated properly
 
+	res, err := httpRequest(
+		"GET", 
+		fmt.Sprintf("%s/prepare_osd_request/%s", METASERVERBASE, objId),
+		nil,
+		nil,
+	)
+
+	log.Println(res)
 	return nil
 }
 
@@ -134,9 +145,16 @@ func downloadFile() error {
 	return nil
 }
 
-func httpRequest(mode string, serverURL string, body *bytes.Buffer, writer *multipart.Writer) ([]byte, error) {
-	// Create HTTP request
-	req, err := http.NewRequest(mode, serverURL, body)
+	  ////////////
+	 // UTILS  //
+	////////////
+
+func httpRequest(mode string, url string, body *bytes.Buffer, writer *multipart.Writer) ([]byte, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = body
+	}
+	req, err := http.NewRequest(mode, url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

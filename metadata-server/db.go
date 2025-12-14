@@ -35,9 +35,7 @@ func CloseDb() {
 	}
 }
 
-func (self *DB) Update(key []byte, val []byte) (error) {
-	log.Printf("UPDATE: Writing key: %s (bytes: %v), value length: %d", string(key), key, len(val))
-
+func (self *DB) Update(key DBKey, val []byte) (error) {
 	err := self.db.Update(func(txn *badger.Txn) error {
 		err := txn.SetEntry(badger.NewEntry(key, val))
 		if err != nil {
@@ -117,7 +115,7 @@ func (self *DB) UpdateObj(incomingObj *MetaObject) error {
     return nil
 }
 
-func (self *DB) Read(key []byte) ([]byte, error){
+func (self *DB) Read(key DBKey) ([]byte, error){
 	var retrievedValue []byte
 
 	log.Printf("READ: Attempting to read key: %s (bytes: %v)", string(key), key)
@@ -149,7 +147,7 @@ func (self *DB) Read(key []byte) ([]byte, error){
 	return retrievedValue, nil
 }
 
-func (self *DB) Delete(key []byte) error {
+func (self *DB) Delete(key DBKey) error {
 	
 	err := self.db.Update(func(txn *badger.Txn) error {
 			
@@ -181,7 +179,9 @@ func (self *DB) Delete(key []byte) error {
 }
 
 
-// UTILS
+	  ////////////
+	 // UTILS  //
+	////////////
 
 func saveMetaToBadger(txn *badger.Txn, key []byte, obj *MetaObject) error {
     data, err := json.Marshal(obj)
@@ -190,4 +190,23 @@ func saveMetaToBadger(txn *badger.Txn, key []byte, obj *MetaObject) error {
     }
     // We update the entry. 
     return txn.Set(key, data)
+}
+
+type DBKey []byte
+type Index int
+const (
+	User Index = iota
+	Object
+)
+
+func NewDBKey(index Index, id string) DBKey {
+	var indexStr string
+	switch index {
+	case User:
+		indexStr = "user"
+	case Object:
+		indexStr = "objid"
+	}
+	
+	return []byte(fmt.Sprintf("%s:%s", indexStr, id))
 }

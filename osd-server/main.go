@@ -10,6 +10,10 @@ import (
 )
 
 func main() {
+	if ISDEV {
+		log.SetFlags(0)
+	}
+	
 	// Create store directory if it doesn't exist
 	if err := os.MkdirAll(UPLOADDIR, 0755); err != nil {
 		log.Fatal("Failed to create store directory:", err)
@@ -24,8 +28,6 @@ func main() {
 	})
 	http.HandleFunc("/preview/", previewHandler)
 	log.Printf("Server starting on PORT %s\n", PORT)
-	log.Printf("Upload endpoint: http://localhost%s/upload\n", PORT)
-	log.Printf("Download endpoint: http://localhost%s/download/{filename}\n", PORT)
 	
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", PORT), nil); err != nil {
 		log.Fatal("Server failed to start:", err)
@@ -74,10 +76,10 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 
-	log.Printf("File uploaded successfully: %s\n", header.Filename)
+	log.Printf("Object created: %s\n", o.Id)
 	
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "File uploaded successfully: %s\n", header.Filename)
+	fmt.Fprintf(w, o.Id, header.Filename)
 }
 
 func downloadHandler(w http.ResponseWriter, r *http.Request) {
@@ -86,14 +88,14 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract filename from URL path
-	filename := filepath.Base(r.URL.Path)
-	if filename == "." || filename == "/" {
+	// Extract objId from URL path
+	objId := filepath.Base(r.URL.Path)
+	if objId == "." || objId == "/" {
 		http.Error(w, "Filename not provided", http.StatusBadRequest)
 		return
 	}
 
-	filePath := filepath.Join(UPLOADDIR, filename)
+	filePath := filepath.Join(UPLOADDIR, objId)
 
 	// Check if file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -112,7 +114,7 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 	// Set headers
 	// TODO switch for certain types to be able to preview e.g., image/jpeg
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", objId))
 
 	// Copy file to response
 	if _, err := io.Copy(w, file); err != nil {
@@ -120,5 +122,5 @@ func downloadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("File downloaded: %s\n", filename)
+	log.Printf("File sent: %s\n", objId)
 }

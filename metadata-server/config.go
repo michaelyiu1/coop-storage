@@ -10,6 +10,7 @@ var (
 	UPLOADDIR       string
 	MAXNAMESIZE   	int64
 	DB_PATH 		string
+	ISDEV			bool
 )
 
 func init() {
@@ -24,6 +25,11 @@ func init() {
 	}
 	MAXNAMESIZE = maxSize
 	DB_PATH = "db"
+	if getEnv("ISDEV", "true") == "true" {
+		ISDEV = true
+	} else {
+		ISDEV = false
+	}
 }
 
 func getEnv(key, defaultValue string) string {

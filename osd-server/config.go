@@ -12,6 +12,7 @@ var (
 	UPLOADDIR       string
 	MAXUPLOADSIZE   int64
 	METADATASERVERURL string
+	 ISDEV bool
 )
 
 func init() {
@@ -27,6 +28,11 @@ func init() {
 	MAXUPLOADSIZE = maxSize
 	
 	METADATASERVERURL = getEnv("METADATA_SERVER_URL", fmt.Sprintf("http://metadata-server:%s", META_PORT))
+	if getEnv("ISDEV", "true") == "true" {
+		ISDEV = true
+	} else {
+		ISDEV = false
+	}
 }
 
 func getEnv(key, defaultValue string) string {

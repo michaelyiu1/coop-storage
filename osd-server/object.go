@@ -14,8 +14,8 @@ import (
 
 type ObjectFile struct {
 	// METADATA
-	id string
-	contents []byte
+	Id string
+	Contents []byte
 }
 
 type MetadataPOST struct {

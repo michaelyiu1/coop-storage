@@ -37,12 +37,13 @@ $ docker compose up -d --force-recreate --build
 ## UX
 - upload multiple files form (make super optimized)
 - file explorer
-- find how to stream multiple fiels at once?
+- find how to stream multiple files at once?
 - shareable collections (e.g., movies etc)
 
 # WILO
 - delete job
 - download route
+- Unique filename per user check, maybe need new index?
 
 # Resources
 - Series of articles on [replication](https://www.enjoyalgorithms.com/blog/storage-and-redundancy)
