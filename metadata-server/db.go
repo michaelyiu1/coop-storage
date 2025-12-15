@@ -117,8 +117,6 @@ func (self *DB) UpdateObj(incomingObj *MetaObject) error {
 
 func (self *DB) Read(key DBKey) ([]byte, error){
 	var retrievedValue []byte
-
-	log.Printf("READ: Attempting to read key: %s (bytes: %v)", string(key), key)
 	
 	err := self.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get(key)
@@ -130,7 +128,6 @@ func (self *DB) Read(key DBKey) ([]byte, error){
 
 		return item.Value(func(val []byte) error {
 			retrievedValue = append([]byte{}, val...)
-			log.Printf("READ: Successfully read key: %s, value length: %d", string(key), len(retrievedValue))
 			return nil
 		})
 	})

@@ -27,7 +27,6 @@ func (o *MetaObject) Read() (error) {
 		return fmt.Errorf("MetaObject needs an id to be Read")
 	}
 	oKey := NewDBKey(Object, o.ID)
-	log.Printf("MetaObject.Read: ID=%s, searching for key: %s\n", o.ID, string(oKey))
 	// TODO: this seems very wrong, try to deserialize directly to self instead, given
 	var currMeta MetaObject
 	currMetaJSON, err := DBInst.Read(oKey)

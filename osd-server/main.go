@@ -79,7 +79,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Object created: %s\n", o.Id)
 	
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, o.Id, header.Filename)
+	fmt.Fprintf(w, o.Id)
 }
 
 func downloadHandler(w http.ResponseWriter, r *http.Request) {

@@ -19,11 +19,11 @@ func (self *OSDGuide) Read(user string) (error) {
 	uKey := NewDBKey(User, user)
 	objectMapJSON, err := DBInst.Read(uKey)
 	if err == badger.ErrKeyNotFound {
-		objectMapJSON = []byte("{}")
-	} else {
+		return KeyNotFound
+	} else if err != nil {
 		return err
 	}
-		
+
 	if err := json.Unmarshal([]byte(objectMapJSON), &objectMap); err != nil {
 		log.Printf("Error unmarshalling JSON: %v", err)
 		return fmt.Errorf("UpdateUserIndex Error unmarshalling JSON")

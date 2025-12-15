@@ -14,7 +14,7 @@ import (
 
 type ObjectFile struct {
 	// METADATA
-	Id string
+	Id string // just used for client
 	Contents []byte
 }
 
@@ -27,7 +27,7 @@ type MetadataPOST struct {
 func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) (error) {
 	// TODO: parallel writes
 	id := uuid.New().String()
-
+	o.Id = id
 	// write to metadata server
 	metadata := MetadataPOST{
 		ID: id,

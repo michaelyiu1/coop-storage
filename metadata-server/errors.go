@@ -21,4 +21,5 @@ import (
 
 var (
 	ErrOnWrite = stderrors.New("Could not write")
+	KeyNotFound =  stderrors.New("Key Not found")
 )

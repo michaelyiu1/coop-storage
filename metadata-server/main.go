@@ -82,12 +82,18 @@ func prepareOSDRequest(w http.ResponseWriter, r *http.Request) {
 	// 	http.Error(w, "Failed to parse JSON", http.StatusBadRequest)
 	// 	return
 	// }
-
-	var rr OSDGuide
-	rr.PageNum = page
+	var og OSDGuide
+	og.PageNum = page
 	//TODO: if user not found, return 404
-	rr.Read(userTMP)
-	jo, err := json.Marshal(rr)
+	if err := og.Read(userTMP); err == KeyNotFound {
+		http.Error(w, fmt.Sprintf("key not found , %v", userTMP), http.StatusNotFound)
+		return
+	} else if err != nil {
+		http.Error(w, fmt.Sprintf("could not read : %v", err), http.StatusInternalServerError)
+
+	}
+
+	jo, err := json.Marshal(og)
 	if err != nil {
 		http.Error(w, "could not marshal object", http.StatusInternalServerError)
 		return

@@ -24,6 +24,7 @@ var (
 	FILENAME = "test.png"
 	TESTDATADIR = "/Users/brianbarry/Desktop/computing/nu-net/coop-storage/tests/data"
 	FILEPATH = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)
+	TESTUSER = "placeholder"
 )
 
 func main() {
@@ -32,12 +33,15 @@ func main() {
 		log.Printf("Upload failed: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Println("Upload completed.")
+
 	
 	// download 
 	if err := downloadFile(); err != nil {
 		log.Printf("Download failed: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Println("Download completed.")
 
 	// TODO: test update
 
@@ -51,8 +55,6 @@ func uploadFile() error {
 		log.Printf("Error: File '%s' does not exist\n", FILEPATH)
 		os.Exit(1)
 	}
-
-	log.Printf("Uploading file: %s\n", FILEPATH)
 
 	uploadEndpoint := fmt.Sprintf("%s/upload", OSDSERVERBASE)
 
@@ -86,27 +88,25 @@ func uploadFile() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Upload completed successfully!")
 
-	//TODO: check if metadata server is populated properly
+	// //TODO: check if metadata server is populated properly
 
 	res, err := httpRequest(
 		"GET", 
-		fmt.Sprintf("%s/prepare_osd_request/%s", METASERVERBASE, objId),
+		fmt.Sprintf("%s/read_meta?id=%s", METASERVERBASE, string(objId)),
 		nil,
 		nil,
 	)
 
-	log.Println(res)
+	log.Println(string(res))
 	return nil
 }
 
 func downloadFile() error {
 	// HERE: ping metadata for object ids
-	dummyUser := "placeholder"
 	res, err := httpRequest(
 		"GET", 
-		fmt.Sprintf("%s/prepare_osd_request/?user=%s", METASERVERBASE, dummyUser),
+		fmt.Sprintf("%s/prepare_osd_request?user=%s", METASERVERBASE, TESTUSER),
 		nil,
 		nil,
 	)
@@ -128,7 +128,7 @@ func downloadFile() error {
 	// HERE: get the data from OSD server
 	fileBytes, err := httpRequest(
 		"GET", 
-		fmt.Sprintf("%s/%s", OSDSERVERBASE, objId),
+		fmt.Sprintf("%s/download/%s", OSDSERVERBASE, objId),
 		nil,
 		nil,
 	)
@@ -183,6 +183,5 @@ func httpRequest(mode string, url string, body *bytes.Buffer, writer *multipart.
 		return nil, fmt.Errorf("server returned error (status %d): %s", resp.StatusCode, string(responseBody))
 	}
 
-	log.Printf("Server response: %s", string(responseBody))
 	return responseBody, nil
 }
