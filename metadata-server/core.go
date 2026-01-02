@@ -21,7 +21,9 @@ type MetaObject struct {
 	// length int32
 }
 
-
+//"Read" is a method on MetaObject
+// o is the receiver variable (like this or self in other languages)
+// *MetaObject means the method receives a pointer to a MetaObject
 func (o *MetaObject) Read() (error) {
 	if (o.ID == "") {
 		return fmt.Errorf("MetaObject needs an id to be Read")
@@ -136,15 +138,17 @@ const  (
 //TODO: concurrency protection?
 func UpdateUserIndex(user string, fName string, objId string, oldFname string, mode UpdateArrayMode) (error) {
 	uKey := NewDBKey(User, user)
-	objectMap :=  make(map[string]string)
-	objectMapJSON, err := DBInst.Read(uKey)
+	objectMap :=  make(map[string]string) //create an empty dictionary
+	objectMapJSON, err := DBInst.Read(uKey) //try to read the database for this user
+	
+	// if the user key is not found in the database, create an empty json object
 	if err == badger.ErrKeyNotFound {
 		objectMapJSON = []byte("{}")
 	} else {
-		return err
+		return err //if there is a serious database issue, report it
 	}
 
-	if err := json.Unmarshal([]byte(objectMapJSON), &objectMap); err != nil {
+	if err := json.Unmarshal([]byte(objectMapJSON), &objectMap); err != nil { //If the JSON is valid and matches your map type, err will be nil
 		log.Printf("Error unmarshalling JSON: %v", err)
 		return fmt.Errorf("UpdateUserIndex Error unmarshalling JSON")
 	}

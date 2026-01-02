@@ -7,22 +7,27 @@ import (
 	"encoding/json"
 )
 
-
+//DB wraps the Badger database
 type DB struct{
 	db *badger.DB
 }
 
+//DBInst is a global singleton
+//You open the DB once
+//Everything else uses DBInst
 var DBInst *DB
 
+
+//Creates Badger config (DB_PATH is where data lives on disk)
 func InitDb() {
 
 	opts := badger.DefaultOptions(DB_PATH)
-
 	// opts.Logger = nil
 
-	db, err := badger.Open(opts)
-	DBInst = &DB {db}
+	db, err := badger.Open(opts) //Opens the database
+	DBInst = &DB {db} //Stores it in DBInst
 
+	//Crashes the program if it fails
 	if err != nil {
 		log.Fatalf("Error opening BadgerDB: %v", err)
 	}
@@ -35,6 +40,8 @@ func CloseDb() {
 	}
 }
 
+//Starts a write transaction, Writes key → val, Commits the transaction
+Calls db.Sync() to flush to disk
 func (self *DB) Update(key DBKey, val []byte) (error) {
 	err := self.db.Update(func(txn *badger.Txn) error {
 		err := txn.SetEntry(badger.NewEntry(key, val))
