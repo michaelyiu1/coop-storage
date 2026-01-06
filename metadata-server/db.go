@@ -41,7 +41,7 @@ func CloseDb() {
 }
 
 //Starts a write transaction, Writes key → val, Commits the transaction
-Calls db.Sync() to flush to disk
+//Calls db.Sync() to flush to disk
 func (self *DB) Update(key DBKey, val []byte) (error) {
 	err := self.db.Update(func(txn *badger.Txn) error {
 		err := txn.SetEntry(badger.NewEntry(key, val))
@@ -213,4 +213,29 @@ func NewDBKey(index Index, id string) DBKey {
 	}
 	
 	return []byte(fmt.Sprintf("%s:%s", indexStr, id))
+}
+
+//For Dev, displaying all metadata
+func getAllMetaIDs() ([]string, error) {
+    var ids []string
+
+    err := DBInst.db.View(func(txn *badger.Txn) error {
+        opts := badger.DefaultIteratorOptions
+        opts.PrefetchValues = false // we only need keys
+        it := txn.NewIterator(opts)
+        defer it.Close()
+
+        for it.Rewind(); it.Valid(); it.Next() {
+            item := it.Item()
+            key := item.Key()
+            ids = append(ids, string(key))
+        }
+        return nil
+    })
+
+    if err != nil {
+        return nil, err
+    }
+
+    return ids, nil
 }

@@ -19,6 +19,7 @@ export default {
       metadata: [],
     };
   },
+  
   async mounted() {
     try {
       const metadataApi = axios.create({

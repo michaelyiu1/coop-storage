@@ -21,7 +21,7 @@ type OSDGuide struct {
 var (
 	OSDSERVERBASE = "http://localhost:8280"
 	METASERVERBASE = "http://localhost:7676"
-	FILENAME = "test.png"
+	FILENAME = "ball.jpg"
 	TESTDATADIR = "/Users/Michael/Documents"
 	FILEPATH = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)
 	TESTUSER = "placeholder"
@@ -179,8 +179,13 @@ func httpRequest(mode string, url string, body *bytes.Buffer, writer *multipart.
 	}
 
 	// Check status code
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("server returned error (status %d): %s", resp.StatusCode, string(responseBody))
+	// Accept any 2xx response
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf(
+			"server returned error (status %d): %s",
+			resp.StatusCode,
+			string(responseBody),
+		)
 	}
 
 	return responseBody, nil

@@ -17,7 +17,7 @@ var (
 
 func init() {
 	PORT = getEnv("PORT", "8280")
-	META_PORT = getEnv("PORT", "7676")
+	META_PORT = getEnv("META_PORT", "7676") //Should be META_PORT??
 	UPLOADDIR = getEnv("UPLOAD_DIR", "./store")
 	
 	maxSizeStr := getEnv("MAX_UPLOAD_SIZE", "10485760")
