@@ -5,6 +5,7 @@ import (
 	"log"
 	"encoding/json"
 	"io"
+	"os"
 )
 
 // TODO: figure out cleaner way to share types across containers?
@@ -23,6 +24,7 @@ type ReadFilter struct {
 func main() {
 	if ISDEV {
 		log.SetFlags(0)
+		log.SetOutput(os.Stdout)
 	}
 	InitDb() //sets up the database connection
 	defer CloseDb() //ensures the database is cleanly closed when the program exits, runs even if server crashes later

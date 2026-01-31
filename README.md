@@ -36,9 +36,10 @@ $ docker compose up -d --force-recreate --build
 
 ## UX
 - upload multiple files form (make super optimized)
-- file explorer
+- file explorer, filter/search file names
 - find how to stream multiple files at once?
 - shareable collections (e.g., movies etc)
+- pages to share images and videos
 
 # WILO
 - delete job
