@@ -10,7 +10,7 @@ var (
 	PORT              string
 	META_PORT         string
 	UPLOADDIR         string
-	UPLOADPVW
+	UPLOADPVW         string
 	MAXUPLOADSIZE     int64
 	METADATASERVERURL string
 	ISDEV             bool

@@ -21,7 +21,7 @@ type OSDGuide struct {
 var (
 	OSDSERVERBASE = "http://localhost:8280"
 	METASERVERBASE = "http://localhost:7676"
-	FILENAME = "test.png"
+	FILENAME = "testdocx.docx"
 	TESTDATADIR = "/Users/ethanspraggon/Projects/coop-storage/tests/data"
 
 	FILEPATH = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)

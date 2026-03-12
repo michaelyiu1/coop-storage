@@ -4,15 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/disintegration/imaging"
-	"github.com/google/uuid"
-	"image/jpeg"
 	"io"
 	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
+
+	"github.com/disintegration/imaging"
+	"github.com/google/uuid"
 )
 
 type ObjectFile struct {
@@ -27,6 +27,8 @@ type MetadataPOST struct {
 	FileName string `json:"fileName"`
 }
 
+// Write [TODO:description]
+// Write [TODO:description]
 func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) error {
 	// TODO: parallel writes
 	id := uuid.New().String()
@@ -61,7 +63,7 @@ func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) e
 	destPath := filepath.Join(UPLOADDIR, id)
 	dest, err := os.Create(destPath)
 	if err != nil {
-		return fmt.Errorf("Failed to create file on server") //StatusInternalServerError
+		return fmt.Errorf("Failed to create file on server") // StatusInternalServerError
 	}
 	defer dest.Close()
 	// this is what preview should look like
@@ -69,24 +71,27 @@ func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) e
 	// find current width and height of image,
 	//
 	//
-var imageTypes = map[string]bool {
-		".jpeg":true
-		".jpg":true
-		".png":true
-		".gif":true
-	}	
+	imageTypes := map[string]bool{
+		".jpeg": true,
+		".jpg":  true,
+		".png":  true,
+		".gif":  true,
+	}
 	if imageTypes[metadata.FileType] {
 
-		img := imaging.Open(metadata.FileName + metadata.FileType)
-		preview := imaging.Resize(img, PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT, imaging.Lanczos )
+		img,_ := imaging.Open(metadata.FileName + metadata.FileType)
+		preview,_ := imaging.Resize(img, PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT, imaging.Lanczos)
 
-
-	}  
+	}
 
 	// TODO: copy image
+	//
 
-		if _, err := io.Copy(dest, *file); err != nil {
-		return fmt.Errorf("Failed to save file") //StatusInternalServerError
+	if _, err := io.Copy(dest, preview); err != nil {
+		return fmt.Errorf("Failed to save image")
+	}
+	if _, err := io.Copy(dest, *file); err != nil {
+		return fmt.Errorf("Failed to save file") // StatusInternalServerError
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
@@ -95,4 +100,3 @@ var imageTypes = map[string]bool {
 
 	return nil
 }
-
