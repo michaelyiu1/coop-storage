@@ -27,8 +27,10 @@ type MetadataPOST struct {
 	FileName string `json:"fileName"`
 }
 
-// Write [TODO:description]
-// Write [TODO:description]
+// Write stores a file upload by assigning it a new UUID, registering its
+// metadata with the metadata server, and saving the file contents (along with
+// an image preview for supported image types) to the upload directory.
+// It returns an error if any step fails.
 func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) error {
 	// TODO: parallel writes
 	id := uuid.New().String()
@@ -51,26 +53,18 @@ func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) e
 	if perr != nil {
 		return fmt.Errorf("failed to POST to metadata server: %w", perr)
 	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("metadata server returned status: %d", resp.StatusCode)
+	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %w", err)
 	}
-	bodyString := string(bodyBytes)
-	log.Printf("Hello %s", bodyString)
-	defer resp.Body.Close()
-	// create file if all is well
-	destPath := filepath.Join(UPLOADDIR, id)
-	dest, err := os.Create(destPath)
-	if err != nil {
-		return fmt.Errorf("Failed to create file on server") // StatusInternalServerError
-	}
-	defer dest.Close()
-	// this is what preview should look like
+	log.Printf("Hello %s", string(bodyBytes))
 
-	// find current width and height of image,
-	//
-	//
 	imageTypes := map[string]bool{
 		".jpeg": true,
 		".jpg":  true,
@@ -78,24 +72,29 @@ func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) e
 		".gif":  true,
 	}
 	if imageTypes[metadata.FileType] {
-
-		img,_ := imaging.Open(metadata.FileName + metadata.FileType)
-		preview,_ := imaging.Resize(img, PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT, imaging.Lanczos)
-
+		img, err := imaging.Decode(*file)
+		if err != nil {
+			return fmt.Errorf("failed to decode image: %w", err)
+		}
+		preview := imaging.Resize(img, PREVIEW_MAX_WIDTH, PREVIEW_MAX_HEIGHT, imaging.Lanczos)
+		previewPath := filepath.Join(UPLOADPVW, metadata.ID+".jpg")
+		if err := imaging.Save(preview, previewPath); err != nil {
+			return fmt.Errorf("failed to save preview: %w", err)
+		}
+		if _, err := (*file).Seek(0, io.SeekStart); err != nil {
+			return fmt.Errorf("failed to seek file: %w", err)
+		}
 	}
 
-	// TODO: copy image
-	//
-
-	if _, err := io.Copy(dest, preview); err != nil {
-		return fmt.Errorf("Failed to save image")
+	destPath := filepath.Join(UPLOADDIR, id)
+	dest, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("failed to create file at %s: %w", destPath, err)
 	}
+	defer dest.Close()
+
 	if _, err := io.Copy(dest, *file); err != nil {
-		return fmt.Errorf("Failed to save file") // StatusInternalServerError
-	}
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("metadata server returned status: %d", resp.StatusCode)
+		return fmt.Errorf("failed to save file: %w", err)
 	}
 
 	return nil

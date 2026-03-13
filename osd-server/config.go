@@ -25,6 +25,7 @@ func init() {
 	PORT = getEnv("PORT", "8280")
 	META_PORT = getEnv("PORT", "7676")
 	UPLOADDIR = getEnv("UPLOAD_DIR", "./store")
+	UPLOADPVW = getEnv("UPLOAD_PVW_DIR", "./store/previews")
 
 	maxSizeStr := getEnv("MAX_UPLOAD_SIZE", "10485760")
 	maxSize, err := strconv.ParseInt(maxSizeStr, 10, 64)
