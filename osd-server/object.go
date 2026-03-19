@@ -10,17 +10,18 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-
 	"github.com/disintegration/imaging"
 	"github.com/google/uuid"
 )
 
+// ObjectFile represents a file stored on the object storage server.
+// Id is assigned at write time and used by the client to reference the object.
 type ObjectFile struct {
-	// METADATA
-	Id       string // just used for client
+	ID       string
 	Contents []byte
 }
 
+// MetadataPOST is the payload sent to the metadata server when a new file is uploaded.
 type MetadataPOST struct {
 	ID       string `json:"id"`
 	FileType string `json:"fileType"`
@@ -34,14 +35,15 @@ type MetadataPOST struct {
 func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) error {
 	// TODO: parallel writes
 	id := uuid.New().String()
-	o.Id = id
-	// write to metadata server
+	o.ID = id
+
 	metadata := MetadataPOST{
 		ID:       id,
 		FileType: filepath.Ext(header.Filename),
 		FileName: header.Filename,
 	}
 
+	// Register the file with the metadata server before writing to disk.
 	jsonData, err := json.Marshal(metadata)
 	if err != nil {
 		return fmt.Errorf("failed to marshal metadata: %w", err)
@@ -65,6 +67,8 @@ func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) e
 	}
 	log.Printf("Hello %s", string(bodyBytes))
 
+	// For supported image types, decode and resize a thumbnail preview,
+	// saving it to UPLOADPVW as <id>.jpg before writing the original file.
 	imageTypes := map[string]bool{
 		".jpeg": true,
 		".jpg":  true,
@@ -81,11 +85,13 @@ func (o *ObjectFile) Write(file *multipart.File, header *multipart.FileHeader) e
 		if err := imaging.Save(preview, previewPath); err != nil {
 			return fmt.Errorf("failed to save preview: %w", err)
 		}
+		// Seek back to the start so io.Copy below reads the full file.
 		if _, err := (*file).Seek(0, io.SeekStart); err != nil {
 			return fmt.Errorf("failed to seek file: %w", err)
 		}
 	}
 
+	// Write the original file bytes to the upload directory.
 	destPath := filepath.Join(UPLOADDIR, id)
 	dest, err := os.Create(destPath)
 	if err != nil {

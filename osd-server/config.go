@@ -17,7 +17,7 @@ var (
 )
 
 const (
-	PREVIEW_MAX_WIDTH  = 150 
+	PREVIEW_MAX_WIDTH  = 150
 	PREVIEW_MAX_HEIGHT = 200
 )
 
