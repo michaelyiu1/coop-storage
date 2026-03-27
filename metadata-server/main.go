@@ -1,23 +1,23 @@
 package main
+
 import (
-	"net/http"
-	"fmt"
-	"log"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
+	"net/http"
 )
 
 // TODO: figure out cleaner way to share types across containers?
 type MetadataPOST struct {
-	ID string `json:"ID"`
+	ID       string `json:"ID"`
 	FileType string `json:"FileType"`
 	FileName string `json:"FileName"`
 }
 
-
 // client -> server (TODO: unused)
 type ReadFilter struct {
-	Query string `json:"query"`
+	Query    string `json:"query"`
 	FileType string `json:"FileType"`
 }
 
@@ -27,10 +27,16 @@ func main() {
 	}
 	InitDb()
 	defer CloseDb()
+	// TODO: add more config to http server e.g,
+	// 		Addr:         ":" + cfg.Server.Port,
+	// Handler:      mux,
+	// ReadTimeout:  10 * time.Second,
+	// WriteTimeout: 10 * time.Second,
+	// IdleTimeout:  60 * time.Second,
 	// client facing
 	http.HandleFunc("/write_object", requestWriteObject) // maybe this one is just auth?
 	http.HandleFunc("/prepare_osd_request", prepareOSDRequest)
-	
+
 	// called by osd
 	http.HandleFunc("/write_meta", createMetaObject)
 	http.HandleFunc("/update_meta", UpdateMetaObject)
@@ -38,7 +44,7 @@ func main() {
 	http.HandleFunc("/read_meta", readMetaObject)
 	http.HandleFunc("/run_gc", runGc)
 	log.Printf("Server starting on PORT %s\n", PORT)
-	
+
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", PORT), nil); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
@@ -48,7 +54,7 @@ func main() {
 func requestWriteObject(w http.ResponseWriter, r *http.Request) {
 	//TODO: consume an API token to verify access
 	// TODO: figure out if what other useful data this controller can return
-	//  is really necessary 
+	//  is really necessary
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -103,8 +109,8 @@ func prepareOSDRequest(w http.ResponseWriter, r *http.Request) {
 	w.Write(jo)
 }
 
-//TODO: shouldn't be able to edit things like owner or filetype,
-//so we shall create Base objects w/ composition to make type definition easier
+// TODO: shouldn't be able to edit things like owner or filetype,
+// so we shall create Base objects w/ composition to make type definition easier
 func UpdateMetaObject(w http.ResponseWriter, r *http.Request) {
 	//TODO: consume an API token to verify access
 	if r.Method != http.MethodPatch {
@@ -133,13 +139,13 @@ func UpdateMetaObject(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("success"))
 }
 
-//called by the OSD Server
+// called by the OSD Server
 func createMetaObject(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	
+
 	log.Printf("createMetaObject invoked")
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -147,20 +153,19 @@ func createMetaObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer r.Body.Close()
-	
+
 	var metaPost MetadataPOST
 	if err := json.Unmarshal(body, &metaPost); err != nil {
 		http.Error(w, "Failed to parse JSON", http.StatusBadRequest)
 		return
 	}
-	
+
 	var metaObject MetaObject
 	metaObject.ID = metaPost.ID
 	metaObject.FileType = metaPost.FileType
 	metaObject.FileName = metaPost.FileName
 	metaObject.Owner = "placeholder" // TODO: get this from auth
 	metaObject.DeleteFlag = false
-	
 
 	if err := metaObject.Create(); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to create object %v", err), http.StatusInternalServerError)
