@@ -13,7 +13,7 @@ func main() {
 	if ISDEV {
 		log.SetFlags(0)
 	}
-	
+
 	// Create store directory if it doesn't exist
 	if err := os.MkdirAll(UPLOADDIR, 0755); err != nil {
 		log.Fatal("Failed to create store directory:", err)
@@ -28,7 +28,7 @@ func main() {
 	})
 	http.HandleFunc("/preview/", previewHandler)
 	log.Printf("Server starting on PORT %s\n", PORT)
-	
+
 	if err := http.ListenAndServe(fmt.Sprintf(":%s", PORT), nil); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
@@ -54,7 +54,7 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Limit request body size
 	r.Body = http.MaxBytesReader(w, r.Body, MAXUPLOADSIZE)
-	
+
 	if err := r.ParseMultipartForm(MAXUPLOADSIZE); err != nil {
 		http.Error(w, "File too large or invalid form data", http.StatusBadRequest)
 		return
@@ -75,9 +75,8 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-
 	log.Printf("Object created: %s\n", o.Id)
-	
+
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, o.Id)
 }
