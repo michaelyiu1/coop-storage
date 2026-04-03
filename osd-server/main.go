@@ -75,10 +75,10 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Object created: %s\n", o.Id)
+	log.Printf("Object created: %s\n", o.ID)
 
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, o.Id)
+	fmt.Fprintf(w, o.ID)
 }
 
 func downloadHandler(w http.ResponseWriter, r *http.Request) {
