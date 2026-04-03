@@ -102,6 +102,7 @@ func buildObjectKey(userID, filename string) string {
 func sanitiseFilename(name string) string {
 	name = strings.ReplaceAll(name, "/", "_")
 	name = strings.ReplaceAll(name, "\\", "_")
+	name = strings.ReplaceAll(name, "..", "_")
 	if name == "" {
 		return "file"
 	}
@@ -146,4 +147,9 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// Needs a register method on uploadhandler
+func (h *UploadHandler) Register(mux *http.ServeMux) {
+	mux.HandleFunc("/upload/presign", h.handlePresign)
 }

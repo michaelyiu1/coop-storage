@@ -58,13 +58,14 @@ func init() {
 	//
 	presignMins, err := strconv.Atoi(getEnv("RUSTFS_PRESIGN_MINUTES", "15"))
 	if err != nil {
-		log.Fatalf("invalid RUSTFS_PRESIGN_MINUTES: %w", err)
+		log.Fatalf("invalid RUSTFS_PRESIGN_MINUTES: %v", err)
 	}
 
 	GLOBAL_CONFIG = &Config{
 		Server: ServerConfig{
 			Port: getEnv("PORT", "8080"),
 		},
+		//checking if env vars are set in RustFSConfig constructor
 		RustFS: RustFSConfig{
 			Endpoint:  requireEnv("RUSTFS_ENDPOINT"),
 			AccessKey: requireEnv("RUSTFS_ACCESS_KEY"),

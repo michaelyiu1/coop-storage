@@ -6,6 +6,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+
+	"github.com/bfbarry/coop-storage/metadata-server/config"
 )
 
 // TODO: figure out cleaner way to share types across containers?
@@ -22,13 +24,13 @@ type ReadFilter struct {
 }
 
 func main() {
-	if ISDEV {
+	if config.ISDEV {
 		log.SetFlags(0)
 	}
 	InitDb()
 	defer CloseDb()
 	// TODO: add more config to http server e.g,
-	// 		Addr:         ":" + cfg.Server.Port,
+	// 		Addr:         ":" + config.Server.Port,
 	// Handler:      mux,
 	// ReadTimeout:  10 * time.Second,
 	// WriteTimeout: 10 * time.Second,
@@ -43,9 +45,9 @@ func main() {
 	// dev only
 	http.HandleFunc("/read_meta", readMetaObject)
 	http.HandleFunc("/run_gc", runGc)
-	log.Printf("Server starting on PORT %s\n", PORT)
+	log.Printf("Server starting on PORT %s\n", config.PORT)
 
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", PORT), nil); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%s", config.PORT), nil); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
 }
