@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -11,8 +10,6 @@ import (
 
 	"github.com/google/uuid"
 )
-
-// HTTP I/O
 
 // PresignRequest is the JSON body the client sends.
 type PresignRequest struct {
@@ -39,18 +36,16 @@ type PresignResponse struct {
 	ExpiresAt time.Time `json:"expires_at"`
 }
 
-// Uploader is the storage capability this handler needs.
-// Keeping it as an interface makes the handler trivially testable.
-type Uploader interface {
-	PresignUpload(ctx context.Context, objectKey, contentType string, contentLength int64) (url string, expiresAt time.Time, err error)
-}
-
 type UploadHandler struct {
 	store Uploader
 }
 
 func NewUploadHandler(store Uploader) *UploadHandler {
 	return &UploadHandler{store: store}
+}
+
+func (h *UploadHandler) Register(mux *http.ServeMux) {
+	mux.HandleFunc("/upload/presign", h.handlePresign)
 }
 
 func (h *UploadHandler) handlePresign(w http.ResponseWriter, r *http.Request) {
@@ -66,14 +61,12 @@ func (h *UploadHandler) handlePresign(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// TODO(auth): replace "anonymous" with the authenticated user's ID once
-	// auth middleware is wired up. The user ID scopes the object key so each
-	// user's files are isolated within the shared bucket.
+	// auth middleware is wired up.
 	userID := "anonymous"
 	objectKey := buildObjectKey(userID, req.Filename)
 
 	uploadURL, expiresAt, err := h.store.PresignUpload(r.Context(), objectKey, req.ContentType, req.ContentLength)
 	if err != nil {
-		// Don't leak internal storage errors to the client.
 		http.Error(w, "failed to generate upload URL", http.StatusInternalServerError)
 		return
 	}
@@ -88,9 +81,6 @@ func (h *UploadHandler) handlePresign(w http.ResponseWriter, r *http.Request) {
 // buildObjectKey constructs a deterministic, collision-free storage path.
 //
 // Format:  {userID}/{fileID}/{sanitisedFilename}
-//
-// Keeping the original filename as a suffix preserves the content-type hint
-// for tooling that inspects the key, while the UUID guarantees uniqueness.
 func buildObjectKey(userID, filename string) string {
 	fileID := uuid.New().String()
 	safe := sanitiseFilename(filename)
@@ -122,7 +112,7 @@ func validatePresignRequest(req PresignRequest) error {
 		errs = append(errs, "content_length must be a positive integer (bytes)")
 	}
 
-	const maxBytes = 5 * 1024 * 1024 * 1024 // 5 GB — tune to your plan limits
+	const maxBytes = 5 * 1024 * 1024 * 1024 // 5 GB
 	if req.ContentLength > maxBytes {
 		errs = append(errs, fmt.Sprintf("content_length exceeds maximum allowed size of %d bytes", maxBytes))
 	}
@@ -131,25 +121,4 @@ func validatePresignRequest(req PresignRequest) error {
 		return errors.New(strings.Join(errs, "; "))
 	}
 	return nil
-}
-
-// ── helpers ──────────────────────────────────────────────────────────────────
-
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, errorResponse{Error: msg})
-}
-
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
-}
-
-// Needs a register method on uploadhandler
-func (h *UploadHandler) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/upload/presign", h.handlePresign)
 }

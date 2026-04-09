@@ -127,3 +127,6 @@ func TestPresign_ObjectKeySanitisation(t *testing.T) {
 		t.Errorf("object_key contains path traversal: %q", got.ObjectKey)
 	}
 }
+
+// --------------------------------------------------------------------------
+// To run all tests in powershell: "go test -v ./metadata-server/..."

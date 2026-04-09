@@ -1,29 +1,30 @@
 package main
+
 import (
-	"fmt"
 	"encoding/json"
-	"github.com/dgraph-io/badger/v4"
+	"fmt"
 	"log"
+
+	"github.com/dgraph-io/badger/v4"
 )
 
 // TODO: don;t save ID in column, waste of space
 type MetaObject struct {
 	// KEY
-	ID         string `json:"id"`
+	ID string `json:"id"`
 	//VALUES
 	Owner      string `json:"owner"`
 	FileType   string `json:"fileType"`
 	FileName   string `json:"fileName"`
 	DeleteFlag bool   `json:"deleteFlag"`
-	Version    int 	  `json:"version"`
+	Version    int    `json:"version"`
 	// TODO: implement these for file integrity checks and multipart upload
 	// offset int32
 	// length int32
 }
 
-
-func (o *MetaObject) Read() (error) {
-	if (o.ID == "") {
+func (o *MetaObject) Read() error {
+	if o.ID == "" {
 		return fmt.Errorf("MetaObject needs an id to be Read")
 	}
 	oKey := NewDBKey(Object, o.ID)
@@ -40,15 +41,15 @@ func (o *MetaObject) Read() (error) {
 		return ErrOnWrite
 	}
 
-	o.Owner  = currMeta.Owner
+	o.Owner = currMeta.Owner
 	o.FileType = currMeta.FileType
 	o.FileName = currMeta.FileName
 	o.DeleteFlag = currMeta.DeleteFlag
-	
+
 	return nil
 }
 
-func (o *MetaObject) Create() (error) {
+func (o *MetaObject) Create() error {
 	// object index
 	jsonStr, err := json.Marshal(o)
 	if err != nil {
@@ -57,12 +58,12 @@ func (o *MetaObject) Create() (error) {
 	}
 	oKey := NewDBKey(Object, o.ID)
 	log.Printf("MetaObject.Create: ID=%s, writing key: %s\n", o.ID, oKey)
-	
-	if err:=UpdateUserIndex(o.Owner, o.FileName, o.ID, "", Add); err != nil {
+
+	if err := UpdateUserIndex(o.Owner, o.FileName, o.ID, "", Add); err != nil {
 		log.Printf("MetaObject.Create Error update user index, %v", err)
 		return err
 	}
-	
+
 	// TODO: use newer UpdateObject instead
 	if err := DBInst.Update([]byte(oKey), jsonStr); err != nil {
 		log.Printf("MetaObject.Create: Failed to update key %s: %v\n", oKey, err)
@@ -76,16 +77,16 @@ func (o *MetaObject) Update() error {
 	// TODO: check if here we also need concurrency protection
 	if o.DeleteFlag {
 		log.Println("Delete detected")
-		if err := DBInst.Delete(NewDBKey(Object, o.ID)); err !=nil {
+		if err := DBInst.Delete(NewDBKey(Object, o.ID)); err != nil {
 			return err
 		}
 		if err := UpdateUserIndex(o.Owner, o.FileName, "", "", Remove); err != nil {
 			return err
 		}
-		
+
 		return nil
 	}
-	
+
 	oKey := NewDBKey(Object, o.ID)
 	var currMeta MetaObject
 	currMetaJSON, err := DBInst.Read(oKey)
@@ -108,35 +109,33 @@ func (o *MetaObject) Update() error {
 		log.Printf("failed to update %v", err)
 		return err
 	}
-	
 
 	return nil
 }
 
-func StartGarbageCollector() (error) {
+func StartGarbageCollector() error {
 	DBInst.db.RunValueLogGC(0.5)
 	return nil
 }
 
-
-	  ////////////
-	 // UTILS  //
-	////////////
+////////////
+// UTILS  //
+////////////
 
 // user index stuff
 type UpdateArrayMode int
 
-const  (
+const (
 	Add UpdateArrayMode = iota
 	Modify
 	Remove
 )
 
-//always call this first to ensure fName uniqueness
-//TODO: concurrency protection?
-func UpdateUserIndex(user string, fName string, objId string, oldFname string, mode UpdateArrayMode) (error) {
+// always call this first to ensure fName uniqueness
+// TODO: concurrency protection?
+func UpdateUserIndex(user string, fName string, objId string, oldFname string, mode UpdateArrayMode) error {
 	uKey := NewDBKey(User, user)
-	objectMap :=  make(map[string]string)
+	objectMap := make(map[string]string)
 	objectMapJSON, err := DBInst.Read(uKey)
 	if err == badger.ErrKeyNotFound {
 		objectMapJSON = []byte("{}")
@@ -153,12 +152,12 @@ func UpdateUserIndex(user string, fName string, objId string, oldFname string, m
 	case Add:
 		if _, ok := objectMap[fName]; ok {
 			return fmt.Errorf("UpdateUserIndex: file name already exists for user")
-		}	
+		}
 		objectMap[fName] = objId
 	case Modify:
 		if _, ok := objectMap[fName]; ok {
 			return fmt.Errorf("UpdateUserIndex: file name already exists for user")
-		}	
+		}
 		delete(objectMap, oldFname)
 		objectMap[fName] = objId
 	case Remove:
@@ -167,6 +166,6 @@ func UpdateUserIndex(user string, fName string, objId string, oldFname string, m
 
 	objectMapJSON, err = json.Marshal(objectMap)
 	DBInst.Update(uKey, objectMapJSON)
-	
+
 	return nil
 }
