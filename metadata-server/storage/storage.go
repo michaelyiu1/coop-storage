@@ -75,3 +75,5 @@ func (c *Client) PresignUpload(
 	expiresAt = time.Now().UTC().Add(c.cfg.PresignDuration)
 	return req.URL, expiresAt, nil
 }
+
+//TODO: PresignDownload

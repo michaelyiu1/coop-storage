@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"log"
 )
 
 // PresignRequest is the JSON body the client sends.
@@ -44,8 +45,8 @@ func NewUploadHandler(store Uploader) *UploadHandler {
 	return &UploadHandler{store: store}
 }
 
-func (h *UploadHandler) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/upload/presign", h.handlePresign)
+func (h *UploadHandler) Register(url string, mux *http.ServeMux) {
+	mux.HandleFunc(url, h.handlePresign)
 }
 
 func (h *UploadHandler) handlePresign(w http.ResponseWriter, r *http.Request) {
@@ -68,6 +69,7 @@ func (h *UploadHandler) handlePresign(w http.ResponseWriter, r *http.Request) {
 	uploadURL, expiresAt, err := h.store.PresignUpload(r.Context(), objectKey, req.ContentType, req.ContentLength)
 	if err != nil {
 		http.Error(w, "failed to generate upload URL", http.StatusInternalServerError)
+		log.Print(err)
 		return
 	}
 

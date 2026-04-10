@@ -37,7 +37,7 @@ type RustFSConfig struct {
 }
 
 func init() {
-	PORT = getEnv("PORT", "7676")
+	PORT = getEnv("PORT", "7678")
 	UPLOADDIR = getEnv("UPLOAD_DIR", "./uploads")
 
 	//TODO: check this
@@ -67,10 +67,10 @@ func init() {
 		},
 		//checking if env vars are set in RustFSConfig constructor
 		RustFS: RustFSConfig{
-			Endpoint:  requireEnv("RUSTFS_ENDPOINT"),
-			AccessKey: requireEnv("RUSTFS_ACCESS_KEY"),
-			SecretKey: requireEnv("RUSTFS_SECRET_KEY"),
-			Bucket:    getEnv("RUSTFS_BUCKET", "user-uploads"),
+			Endpoint:  getEnv("RUSTFS_ENDPOINT", "http://127.0.0.1:9000"),
+			AccessKey: getEnv("RUSTFS_ACCESS_KEY", "rustfsadmin"),
+			SecretKey: getEnv("RUSTFS_SECRET_KEY", "rustfsadmin"),
+			Bucket:    getEnv("RUSTFS_BUCKET", "tests"),
 			// Region:          getEnv("RUSTFS_REGION", "us-east-1"),
 			PresignDuration: time.Duration(presignMins) * time.Minute,
 			UsePathStyle:    true,

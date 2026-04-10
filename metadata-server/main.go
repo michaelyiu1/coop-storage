@@ -8,6 +8,8 @@ import (
 	"net/http"
 
 	"github.com/bfbarry/coop-storage/metadata-server/config"
+	"github.com/bfbarry/coop-storage/metadata-server/controllers"
+	"github.com/bfbarry/coop-storage/metadata-server/storage"
 )
 
 // TODO: figure out cleaner way to share types across containers?
@@ -34,20 +36,34 @@ func main() {
 	// Handler:      mux,
 	// ReadTimeout:  10 * time.Second,
 	// WriteTimeout: 10 * time.Second,
-	// IdleTimeout:  60 * time.Second,
-	// client facing
-	http.HandleFunc("/write_object", requestWriteObject) // maybe this one is just auth?
-	http.HandleFunc("/prepare_osd_request", prepareOSDRequest)
+	// IdleTimeout:  60 * time.Second
 
-	// called by osd
-	http.HandleFunc("/write_meta", createMetaObject)
-	http.HandleFunc("/update_meta", UpdateMetaObject)
-	// dev only
-	http.HandleFunc("/read_meta", readMetaObject)
-	http.HandleFunc("/run_gc", runGc)
+	mux := http.NewServeMux()
+
+	rustFsClient := storage.NewClient(config.GLOBAL_CONFIG.RustFS)
+
+	uploader := controllers.NewUploadHandler(rustFsClient)
+
+	uploader.Register("/upload/presign", mux)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		_, err := fmt.Fprintf(w, "Hello, World!")
+		if err != nil {
+			panic("ahhh")
+		}
+	})
+	// client facing
+	// http.HandleFunc("/write_object", requestWriteObject) // maybe this one is just auth?
+	// http.HandleFunc("/prepare_osd_request", uploader.)
+
+	// // called by osd
+	// http.HandleFunc("/write_meta", createMetaObject)
+	// http.HandleFunc("/update_meta", UpdateMetaObject)
+	// // dev only
+	// http.HandleFunc("/read_meta", readMetaObject)
+	// http.HandleFunc("/run_gc", runGc)
 	log.Printf("Server starting on PORT %s\n", config.PORT)
 
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", config.PORT), nil); err != nil {
+	if err := http.ListenAndServe(fmt.Sprintf(":%s", config.PORT), mux); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
 }
@@ -65,50 +81,6 @@ func requestWriteObject(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("tokenplaceholder"))
 
-}
-
-// Helps client retrieve or update objects on OSD
-func prepareOSDRequest(w http.ResponseWriter, r *http.Request) {
-	//TODO: consume an API token to verify access
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-	// TODO: use ReadFilter
-	page := 0 //r.URL.Query().Get("page")
-
-	// TODO: get this from auth
-	userTMP := r.URL.Query().Get("user")
-
-	// body, err := io.ReadAll(r.Body)
-	// if err != nil {
-	// 	http.Error(w, "Failed to read request body", http.StatusBadRequest)
-	// 	return
-	// }
-	// defer r.Body.Close()
-	// if err := json.Unmarshal(body, &filter); err != nil {
-	// 	http.Error(w, "Failed to parse JSON", http.StatusBadRequest)
-	// 	return
-	// }
-	var og OSDGuide
-	og.PageNum = page
-	//TODO: if user not found, return 404
-	if err := og.Read(userTMP); err == KeyNotFound {
-		http.Error(w, fmt.Sprintf("key not found , %v", userTMP), http.StatusNotFound)
-		return
-	} else if err != nil {
-		http.Error(w, fmt.Sprintf("could not read : %v", err), http.StatusInternalServerError)
-
-	}
-
-	jo, err := json.Marshal(og)
-	if err != nil {
-		http.Error(w, "could not marshal object", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	w.Write(jo)
 }
 
 // TODO: shouldn't be able to edit things like owner or filetype,
