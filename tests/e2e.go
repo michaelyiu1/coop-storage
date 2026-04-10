@@ -10,6 +10,7 @@ import (
 	"os"
 	"log"
 	"encoding/json"
+	"strings"
 )
 
 type OSDGuide struct {
@@ -138,7 +139,9 @@ func downloadFile() error {
 		return err
 	}
 
-	err = os.WriteFile(fmt.Sprintf("%s/%s_downloaded", TESTDATADIR, FILENAME), fileBytes, 0644)
+	parts := strings.Split(FILENAME, ".")
+	fileOut := fmt.Sprintf("%s_downloaded.%s", parts[0], parts[1])
+	err = os.WriteFile(fmt.Sprintf("%s/%s", TESTDATADIR, fileOut), fileBytes, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write bytes to file: %w", err)
 	}

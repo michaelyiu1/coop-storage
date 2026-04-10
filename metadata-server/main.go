@@ -10,6 +10,7 @@ import (
 	"github.com/bfbarry/coop-storage/metadata-server/config"
 	"github.com/bfbarry/coop-storage/metadata-server/controllers"
 	"github.com/bfbarry/coop-storage/metadata-server/storage"
+	"os"
 )
 
 // TODO: figure out cleaner way to share types across containers?
@@ -28,6 +29,7 @@ type ReadFilter struct {
 func main() {
 	if config.ISDEV {
 		log.SetFlags(0)
+		log.SetOutput(os.Stdout)
 	}
 	InitDb()
 	defer CloseDb()
