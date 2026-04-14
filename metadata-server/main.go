@@ -7,10 +7,11 @@ import (
 	"log"
 	"net/http"
 
+	"os"
+
 	"github.com/bfbarry/coop-storage/metadata-server/config"
 	"github.com/bfbarry/coop-storage/metadata-server/controllers"
 	"github.com/bfbarry/coop-storage/metadata-server/storage"
-	"os"
 )
 
 // TODO: figure out cleaner way to share types across containers?

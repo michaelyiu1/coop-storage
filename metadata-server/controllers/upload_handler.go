@@ -8,8 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
 	"log"
+
+	"github.com/google/uuid"
 )
 
 // PresignRequest is the JSON body the client sends.
@@ -45,8 +46,8 @@ func NewUploadHandler(store Uploader) *UploadHandler {
 	return &UploadHandler{store: store}
 }
 
-func (h *UploadHandler) Register(url string, mux *http.ServeMux) {
-	mux.HandleFunc(url, h.handlePresign)
+func (h *UploadHandler) Register(prefix string, mux *http.ServeMux) {
+	mux.HandleFunc(prefix+"/presign", h.handlePresign)
 }
 
 func (h *UploadHandler) handlePresign(w http.ResponseWriter, r *http.Request) {
