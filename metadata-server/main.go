@@ -46,14 +46,23 @@ func main() {
 	rustFsClient := storage.NewClient(config.GLOBAL_CONFIG.RustFS)
 
 	uploader := controllers.NewUploadHandler(rustFsClient)
+	uploader.Register("/upload", mux)
 
-	uploader.Register("/upload/presign", mux)
+	downloader := controllers.NewDownloadHandler(rustFsClient)
+	downloader.Register(mux)
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		_, err := fmt.Fprintf(w, "Hello, World!")
-		if err != nil {
-			panic("ahhh")
+		if r.Method != http.MethodGet {
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
 		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{"status":"ok"}`)
 	})
+	mux.HandleFunc("/write_meta", createMetaObject)
+	mux.HandleFunc("/read_meta", readMetaObject)
+
 	// client facing
 	// http.HandleFunc("/write_object", requestWriteObject) // maybe this one is just auth?
 	// http.HandleFunc("/prepare_osd_request", uploader.)

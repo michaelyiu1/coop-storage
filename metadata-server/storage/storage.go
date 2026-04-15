@@ -76,4 +76,45 @@ func (c *Client) PresignUpload(
 	return req.URL, expiresAt, nil
 }
 
-//TODO: PresignDownload
+func (c *Client) PresignDownload(
+	ctx context.Context,
+	objectKey string,
+) (url string, expiresAt time.Time, err error) {
+	req, err := c.presigner.PresignGetObject(ctx,
+		&s3.GetObjectInput{
+			Bucket: aws.String(c.cfg.Bucket),
+			Key:    aws.String(objectKey),
+		},
+		s3.WithPresignExpires(c.cfg.PresignDuration),
+	)
+	if err != nil {
+		return "", time.Time{}, fmt.Errorf("presign get object: %w", err)
+	}
+
+	expiresAt = time.Now().UTC().Add(c.cfg.PresignDuration)
+	return req.URL, expiresAt, nil
+}
+
+func (c *Client) DeleteObject(
+	ctx context.Context,
+	objectKey string,
+) error {
+	_, err := c.s3.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(c.cfg.Bucket),
+		Key:    aws.String(objectKey),
+	})
+	if err != nil {
+		return fmt.Errorf("delete object: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) PresignUpdate(
+	ctx context.Context,
+	objectKey string,
+	contentType string,
+	contentLength int64,
+) (url string, expiresAt time.Time, err error) {
+	// S3 updates are just overwrites — same as a PUT
+	return c.PresignUpload(ctx, objectKey, contentType, contentLength)
+}
