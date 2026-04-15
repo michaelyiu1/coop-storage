@@ -21,11 +21,10 @@ type OSDGuide struct {
 
 var (
 	METASERVERBASE = "http://localhost:7678"
-	FILENAME       = "ball.jpg"
-	TESTDATADIR    = "/Users/Michael/Documents/test_images"
-
-	FILEPATH = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)
-	TESTUSER = "placeholder"
+	FILENAME       = "colorful balls.jpg"
+	TESTDATADIR    = "./data"
+	FILEPATH       = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)
+	TESTUSER       = "placeholder"
 )
 
 func main() {
@@ -41,6 +40,18 @@ func main() {
 		os.Exit(1)
 	}
 	fmt.Println("Download completed.")
+
+	if err := writeMeta(objectKey); err != nil {
+		log.Printf("Write meta failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Metadata written.")
+
+	if err := readMeta(objectKey); err != nil {
+		log.Printf("Read meta failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Metadata read.")
 
 	// TODO: test update
 	// TODO: test deletion
@@ -199,4 +210,44 @@ func httpRequest(mode string, url string, body *bytes.Buffer, writer *multipart.
 	}
 
 	return responseBody, nil
+}
+
+// writeMeta sends a request to the metadata server to write metadata for a given object key.
+func writeMeta(objectKey string) error {
+	body, _ := json.Marshal(map[string]any{
+		"ID":       objectKey,
+		"FileType": "image/jpeg",
+		"FileName": FILENAME,
+	})
+
+	resp, err := http.Post(
+		METASERVERBASE+"/write_meta",
+		"application/json",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return fmt.Errorf("write_meta failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("write_meta returned %d: %s", resp.StatusCode, b)
+	}
+	return nil
+}
+
+// readMeta sends a request to the metadata server to read metadata for a given object key.
+func readMeta(objectKey string) error {
+	resp, err := http.Get(
+		fmt.Sprintf("%s/read_meta?id=%s", METASERVERBASE, url.QueryEscape(objectKey)),
+	)
+	if err != nil {
+		return fmt.Errorf("read_meta failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	log.Printf("Metadata: %s", body)
+	return nil
 }
