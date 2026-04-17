@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Expose port
-EXPOSE 7676
+EXPOSE 7678
 
 # Use air for live reload
 CMD ["CompileDaemon", "--build=go build -o main.o .", "--command=./main.o"]

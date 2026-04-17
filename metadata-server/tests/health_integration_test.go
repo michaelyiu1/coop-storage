@@ -105,7 +105,7 @@ func (m *multiMock) DeleteObject(_ context.Context, key string) error {
 func newFullTestServer(t *testing.T, mock *multiMock) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	handler.NewUploadHandler(mock).Register(mux)
+	handler.NewUploadHandler(mock).Register("/upload", mux)
 	handler.NewDeleteHandler(mock).Register(mux)
 	handler.NewHealthHandler().Register(mux)
 	return httptest.NewServer(mux)

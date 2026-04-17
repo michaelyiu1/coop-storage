@@ -7,10 +7,11 @@ import (
 	"log"
 	"net/http"
 
+	"os"
+
 	"github.com/bfbarry/coop-storage/metadata-server/config"
 	"github.com/bfbarry/coop-storage/metadata-server/controllers"
 	"github.com/bfbarry/coop-storage/metadata-server/storage"
-	"os"
 )
 
 // TODO: figure out cleaner way to share types across containers?
@@ -45,14 +46,26 @@ func main() {
 	rustFsClient := storage.NewClient(config.GLOBAL_CONFIG.RustFS)
 
 	uploader := controllers.NewUploadHandler(rustFsClient)
+	downloader := controllers.NewDownloadHandler(rustFsClient)
 
-	uploader.Register("/upload/presign", mux)
+	// uploader.Register("/upload/presign", mux)
+	// downloader.Register("/download/presign", mux)
+
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		_, err := fmt.Fprintf(w, "Hello, World!")
-		if err != nil {
-			panic("ahhh")
+		if r.Method != http.MethodGet {
+			http.Error(w, `{"error":"method not allowed"}`, http.StatusMethodNotAllowed)
+			return
 		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, `{"status":"ok"}`)
 	})
+
+	mux.HandleFunc("/upload/presign", uploader.HandlePresign)
+	mux.HandleFunc("/download/presign/", downloader.HandlePresign)
+	mux.HandleFunc("/write_meta", createMetaObject)
+	mux.HandleFunc("/read_meta", readMetaObject)
+
 	// client facing
 	// http.HandleFunc("/write_object", requestWriteObject) // maybe this one is just auth?
 	// http.HandleFunc("/prepare_osd_request", uploader.)

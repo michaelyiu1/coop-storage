@@ -2,156 +2,178 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"net/http"
-	"path/filepath"
+	"net/url"
 	"os"
-	"log"
-	"encoding/json"
-	"strings"
+	// "strings"
 )
 
 type OSDGuide struct {
-	Token string `json:"Token"`
-	PageNum int `json:"PageNum"`
-	IDMap map[string]string `json:"IDMap"`
+	Token   string            `json:"Token"`
+	PageNum int               `json:"PageNum"`
+	IDMap   map[string]string `json:"IDMap"`
 }
 
 var (
-	OSDSERVERBASE = "http://localhost:8280"
-	METASERVERBASE = "http://localhost:7676"
-	FILENAME = "testdocx.docx"
-	TESTDATADIR = "/Users/ethanspraggon/Projects/coop-storage/tests/data"
-
-	FILEPATH = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)
-	TESTUSER = "placeholder"
+	METASERVERBASE = "http://localhost:7678"
+	FILENAME       = "test.txt"
+	TESTDATADIR    = "./data"
+	FILEPATH       = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)
+	TESTUSER       = "placeholder"
 )
 
 func main() {
-	// upload
-	if err := uploadFile(); err != nil {
+	objectKey, err := uploadFile()
+	if err != nil {
 		log.Printf("Upload failed: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println("Upload completed.")
 
-	
-	// download 
-	if err := downloadFile(); err != nil {
+	if err := downloadFile(objectKey); err != nil {
 		log.Printf("Download failed: %v\n", err)
 		os.Exit(1)
 	}
 	fmt.Println("Download completed.")
 
-	// TODO: test update
-
-	// TODO: test deletion
-
-}
-
-func uploadFile() error {
-
-	if _, err := os.Stat(FILEPATH); os.IsNotExist(err) {
-		log.Printf("Error: File '%s' does not exist\n", FILEPATH)
+	if err := writeMeta(objectKey); err != nil {
+		log.Printf("Write meta failed: %v\n", err)
 		os.Exit(1)
 	}
+	fmt.Println("Metadata written.")
 
-	uploadEndpoint := fmt.Sprintf("%s/upload", OSDSERVERBASE)
+	if err := readMeta(objectKey); err != nil {
+		log.Printf("Read meta failed: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Println("Metadata read.")
 
-	// Open the file
+	// TODO: test update
+	// TODO: test deletion
+}
+
+func uploadFile() (string, error) {
+	if _, err := os.Stat(FILEPATH); os.IsNotExist(err) {
+		return "", fmt.Errorf("file '%s' does not exist", FILEPATH)
+
+	}
+
+	// Step 1: get presigned upload URL from metadata server
+	fileInfo, err := os.Stat(FILEPATH)
+	if err != nil {
+		return "", fmt.Errorf("failed to stat file: %w", err)
+	}
+
+	presignBody, _ := json.Marshal(map[string]any{
+		"filename":       FILENAME,
+		"content_type":   "application/octet-stream",
+		"content_length": fileInfo.Size(),
+	})
+
+	resp, err := http.Post(
+		METASERVERBASE+"/upload/presign",
+		"application/json",
+		bytes.NewReader(presignBody),
+	)
+	if err != nil {
+		return "", fmt.Errorf("presign request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("presign returned %d: %s", resp.StatusCode, body)
+	}
+
+	var presign struct {
+		UploadURL string `json:"upload_url"`
+		ObjectKey string `json:"object_key"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&presign); err != nil {
+		return "", fmt.Errorf("failed to decode presign response: %w", err)
+	}
+	log.Printf("Got presign URL for object_key: %s", presign.ObjectKey)
+
+	// Step 2: PUT file bytes directly to RustFS presigned URL
 	file, err := os.Open(FILEPATH)
 	if err != nil {
-		return fmt.Errorf("failed to open file: %w", err)
+		return "", fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
-	// Create a buffer to write our multipart form data
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	// Create form file field
-	part, err := writer.CreateFormFile("file", filepath.Base(FILEPATH))
+	putReq, err := http.NewRequest(http.MethodPut, presign.UploadURL, file)
 	if err != nil {
-		return fmt.Errorf("failed to create form file: %w", err)
+		return "", fmt.Errorf("failed to create PUT request: %w", err)
 	}
+	putReq.Header.Set("Content-Type", "application/octet-stream")
+	putReq.ContentLength = fileInfo.Size()
 
-	// Copy file contents to the form field
-	if _, err := io.Copy(part, file); err != nil {
-		return fmt.Errorf("failed to copy file: %w", err)
-	}
-
-	if err := writer.Close(); err != nil {
-		return fmt.Errorf("failed to close writer: %w", err)
-	}
-
-	objId, err := httpRequest("POST", uploadEndpoint, body, writer)
+	putResp, err := http.DefaultClient.Do(putReq)
 	if err != nil {
-		return err
+		return "", fmt.Errorf("PUT to RustFS failed: %w", err)
+	}
+	defer putResp.Body.Close()
+
+	if putResp.StatusCode != http.StatusOK && putResp.StatusCode != http.StatusNoContent {
+		body, _ := io.ReadAll(putResp.Body)
+		return "", fmt.Errorf("RustFS PUT returned %d: %s", putResp.StatusCode, body)
 	}
 
-	// //TODO: check if metadata server is populated properly
+	log.Printf("File uploaded successfully. ObjectKey: %s", presign.ObjectKey)
+	return presign.ObjectKey, nil
+}
 
-	res, err := httpRequest(
-		"GET", 
-		fmt.Sprintf("%s/read_meta?id=%s", METASERVERBASE, string(objId)),
-		nil,
-		nil,
+func downloadFile(objectKey string) error {
+	resp, err := http.Get(
+		fmt.Sprintf("%s/download/presign/%s", METASERVERBASE, url.PathEscape(objectKey)),
 	)
+	if err != nil {
+		return fmt.Errorf("download presign request failed: %w", err)
+	}
+	defer resp.Body.Close()
 
-	log.Println(string(res))
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("download presign returned %d: %s", resp.StatusCode, body)
+	}
+
+	var presign struct {
+		DownloadURL string `json:"download_url"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&presign); err != nil {
+		return fmt.Errorf("failed to decode presign response: %w", err)
+	}
+	log.Printf("Got download URL: %s", presign.DownloadURL)
+
+	getResp, err := http.Get(presign.DownloadURL)
+	if err != nil {
+		return fmt.Errorf("GET from RustFS failed: %w", err)
+	}
+	defer getResp.Body.Close()
+
+	outPath := fmt.Sprintf("%s/downloaded_%s", TESTDATADIR, FILENAME)
+	f, err := os.Create(outPath)
+	if err != nil {
+		return fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer f.Close()
+
+	if _, err := io.Copy(f, getResp.Body); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+
+	log.Printf("File downloaded to %s", outPath)
 	return nil
 }
 
-func downloadFile() error {
-	// HERE: ping metadata for object ids
-	res, err := httpRequest(
-		"GET", 
-		fmt.Sprintf("%s/prepare_osd_request?user=%s", METASERVERBASE, TESTUSER),
-		nil,
-		nil,
-	)
-	
-	if err != nil {
-		return err
-	}
-
-	g := OSDGuide{}
-	json.Unmarshal(res, &g)
-	var objId string
-	for name, id := range g.IDMap {
-		if name == FILENAME {
-			objId = id
-			break
-		}
-	}
-
-	// HERE: get the data from OSD server
-	fileBytes, err := httpRequest(
-		"GET", 
-		fmt.Sprintf("%s/download/%s", OSDSERVERBASE, objId),
-		nil,
-		nil,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	parts := strings.Split(FILENAME, ".")
-	fileOut := fmt.Sprintf("%s_downloaded.%s", parts[0], parts[1])
-	err = os.WriteFile(fmt.Sprintf("%s/%s", TESTDATADIR, fileOut), fileBytes, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write bytes to file: %w", err)
-	}
-
-	return nil
-}
-
-	  ////////////
-	 // UTILS  //
-	////////////
+////////////
+// UTILS  //
+////////////
 
 func httpRequest(mode string, url string, body *bytes.Buffer, writer *multipart.Writer) ([]byte, error) {
 	var bodyReader io.Reader
@@ -188,4 +210,44 @@ func httpRequest(mode string, url string, body *bytes.Buffer, writer *multipart.
 	}
 
 	return responseBody, nil
+}
+
+// writeMeta sends a request to the metadata server to write metadata for a given object key.
+func writeMeta(objectKey string) error {
+	body, _ := json.Marshal(map[string]any{
+		"ID":       objectKey,
+		"FileType": "image/jpeg",
+		"FileName": FILENAME,
+	})
+
+	resp, err := http.Post(
+		METASERVERBASE+"/write_meta",
+		"application/json",
+		bytes.NewReader(body),
+	)
+	if err != nil {
+		return fmt.Errorf("write_meta failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		b, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("write_meta returned %d: %s", resp.StatusCode, b)
+	}
+	return nil
+}
+
+// readMeta sends a request to the metadata server to read metadata for a given object key.
+func readMeta(objectKey string) error {
+	resp, err := http.Get(
+		fmt.Sprintf("%s/read_meta?id=%s", METASERVERBASE, url.QueryEscape(objectKey)),
+	)
+	if err != nil {
+		return fmt.Errorf("read_meta failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	log.Printf("Metadata: %s", body)
+	return nil
 }

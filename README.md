@@ -1,52 +1,55 @@
-# README
+# coop-storage — Metadata Server
+
+A file metadata store built on BadgerDB (LSM-tree key-value store) with RustFS as the object storage backend. Built for DSCI 551, Spring '26.
+
+## Prerequisites
+
+- Docker + Docker Compose
+- Go 1.25+
+- Git Bash (Windows) or bash (Mac/Linux)
+
+## Setup
+
+### 1. Clone and enter the repo
 
 ```bash
-.
-├── cli-client      # a command line tool to test uploading files
-├── devops          # Docker compose, TBD nginx stuff
-├── metadata-server # metadata and auth endpoints 
-└── osd-server      # Contains file data
+git clone <repo-url>
+cd coop-storage
 ```
 
-To get started:
+### 2. Start the containers
+
 ```bash
-$ cd server
-$ docker compose up -d --force-recreate --build 
+cd devops
+docker compose -f docker-compose.dev.yml up -d
 ```
 
-# TODO:
-## Security
-- encrypt files
-- User buckets (replicated across nodes?)
-    - A user shall access a bucket only if it's theirs
-- Auth flow:
-    - Client pings Metadata server
-    - Metadata server issues token, mappings etc
-    - Client pings OSD server
+This starts:
+- `metadata-server` on port `7678`
+- `osd-server` (RustFS) on port `9000` (S3 API) and `9001` (web console)
 
-## Architecture
-- image preview as metadata (but maybe store those as objects too)
-- rate limiting (with Nginx)
-- distributed 
+### 3. Create the bucket
 
-## Abtraction
-- Abstract DB into objects
-- use mux
-- grpc and protobufs to share types?
+Open http://localhost:9001 in your browser and log in:
+- Username: `rustfsadmin`
+- Password: `rustfsadmin`
 
-## UX
-- upload multiple files form (make super optimized)
-- file explorer, filter/search file names
-- find how to stream multiple files at once?
-- shareable collections (e.g., movies etc)
-- pages to share images and videos
+Create a bucket named **`tests`**.
 
-# WILO
-- delete job
-- download route
-- Unique filename per user check, maybe need new index?
+### 4. Verify the server is healthy
 
-# Resources
-- Series of articles on [replication](https://www.enjoyalgorithms.com/blog/storage-and-redundancy)
-- https://github.com/google/go-cloud
-- https://medium.com/@kamal.maiti/object-based-storage-architecture-b841e5842124
+```bash
+
+# expected: {"status":"ok"}
+```
+
+## Running the E2E Demo
+
+Test images are in `tests/data/`. From the repo root:
+
+```bash
+cd tests
+sh full_test.sh
+```
+
+Expected output:

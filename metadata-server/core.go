@@ -136,11 +136,12 @@ const (
 func UpdateUserIndex(user string, fName string, objId string, oldFname string, mode UpdateArrayMode) error {
 	uKey := NewDBKey(User, user)
 	objectMap := make(map[string]string)
+
 	objectMapJSON, err := DBInst.Read(uKey)
-	if err == badger.ErrKeyNotFound {
-		objectMapJSON = []byte("{}")
-	} else {
+	if err != nil && err != badger.ErrKeyNotFound {
 		return err
+	} else if err == badger.ErrKeyNotFound {
+		objectMapJSON = []byte("{}")
 	}
 
 	if err := json.Unmarshal([]byte(objectMapJSON), &objectMap); err != nil {
