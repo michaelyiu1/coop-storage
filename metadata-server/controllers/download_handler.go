@@ -21,11 +21,11 @@ func NewDownloadHandler(store Downloader) *DownloadHandler {
 	return &DownloadHandler{store: store}
 }
 
-func (h *DownloadHandler) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/download/presign/", h.handle)
-}
+// func (h *DownloadHandler) Register(url string, mux *http.ServeMux) {
+// 	mux.HandleFunc(url, h.handle)
+// }
 
-func (h *DownloadHandler) handle(w http.ResponseWriter, r *http.Request) {
+func (h *DownloadHandler) HandlePresign(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return

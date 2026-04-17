@@ -46,10 +46,10 @@ func main() {
 	rustFsClient := storage.NewClient(config.GLOBAL_CONFIG.RustFS)
 
 	uploader := controllers.NewUploadHandler(rustFsClient)
-	uploader.Register("/upload", mux)
-
 	downloader := controllers.NewDownloadHandler(rustFsClient)
-	downloader.Register(mux)
+
+	// uploader.Register("/upload/presign", mux)
+	// downloader.Register("/download/presign", mux)
 
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -60,6 +60,9 @@ func main() {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, `{"status":"ok"}`)
 	})
+
+	mux.HandleFunc("/upload/presign", uploader.HandlePresign)
+	mux.HandleFunc("/download/presign/", downloader.HandlePresign)
 	mux.HandleFunc("/write_meta", createMetaObject)
 	mux.HandleFunc("/read_meta", readMetaObject)
 

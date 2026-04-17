@@ -21,7 +21,7 @@ type OSDGuide struct {
 
 var (
 	METASERVERBASE = "http://localhost:7678"
-	FILENAME       = "colorful balls.jpg"
+	FILENAME       = "test.txt"
 	TESTDATADIR    = "./data"
 	FILEPATH       = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)
 	TESTUSER       = "placeholder"
