@@ -18,7 +18,7 @@ type MetaObject struct {
 	FileName   string `json:"fileName"`
 	DeleteFlag bool   `json:"deleteFlag"`
 	Version    int    `json:"version"`
-	// TODO: implement these for file integrity checks and multipart upload
+	// TODO: maybe implement these for file integrity checks and multipart upload
 	// offset int32
 	// length int32
 }
@@ -50,13 +50,25 @@ func (o *MetaObject) Read() error {
 }
 
 func (o *MetaObject) Create() error {
+	oKey := NewDBKey(Object, o.ID)
+
+	// Check if object with this ID already exists
+	_, err := DBInst.Read(oKey)
+	if err == nil {
+		log.Printf("MetaObject.Create: Object with ID %s already exists\n", o.ID)
+		return fmt.Errorf("object with ID %s already exists", o.ID)
+	}
+	if err != badger.ErrKeyNotFound {
+		log.Printf("MetaObject.Create: Failed to check for existing key %s: %v\n", oKey, err)
+		return err
+	}
+
 	// object index
 	jsonStr, err := json.Marshal(o)
 	if err != nil {
 		log.Printf("MetaObject.Create: Failed to marshal object: %v\n", err)
 		return err
 	}
-	oKey := NewDBKey(Object, o.ID)
 	log.Printf("MetaObject.Create: ID=%s, writing key: %s\n", o.ID, oKey)
 
 	if err := UpdateUserIndex(o.Owner, o.FileName, o.ID, "", Add); err != nil {
