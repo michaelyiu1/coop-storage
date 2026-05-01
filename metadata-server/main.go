@@ -16,15 +16,33 @@ import (
 
 // TODO: figure out cleaner way to share types across containers?
 type MetadataPOST struct {
-	ID       string `json:"ID"`
-	FileType string `json:"FileType"`
-	FileName string `json:"FileName"`
+	ID       string `json:"id"`
+	Owner    string `json:"owner"`
+	FileType string `json:"fileType"`
+	FileName string `json:"fileName"`
 }
 
 // client -> server (TODO: unused)
 type ReadFilter struct {
 	Query    string `json:"query"`
 	FileType string `json:"FileType"`
+}
+
+// CORS middleware to allow cross-origin requests
+func corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight requests
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func main() {
@@ -65,6 +83,7 @@ func main() {
 	mux.HandleFunc("/download/presign/", downloader.HandlePresign)
 	mux.HandleFunc("/write_meta", createMetaObject)
 	mux.HandleFunc("/read_meta", readMetaObject)
+	mux.HandleFunc("/read_all_meta", readAllMetaObjects)
 
 	// client facing
 	// http.HandleFunc("/write_object", requestWriteObject) // maybe this one is just auth?
@@ -78,7 +97,10 @@ func main() {
 	// http.HandleFunc("/run_gc", runGc)
 	log.Printf("Server starting on PORT %s\n", config.PORT)
 
-	if err := http.ListenAndServe(fmt.Sprintf(":%s", config.PORT), mux); err != nil {
+	// Wrap mux with CORS middleware
+	handler := corsMiddleware(mux)
+
+	if err := http.ListenAndServe(fmt.Sprintf(":%s", config.PORT), handler); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
 }
@@ -153,7 +175,7 @@ func createMetaObject(w http.ResponseWriter, r *http.Request) {
 	metaObject.ID = metaPost.ID
 	metaObject.FileType = metaPost.FileType
 	metaObject.FileName = metaPost.FileName
-	metaObject.Owner = "placeholder" // TODO: get this from auth
+	metaObject.Owner = metaPost.Owner // TODO: get this from auth
 	metaObject.DeleteFlag = false
 
 	if err := metaObject.Create(); err != nil {
@@ -189,6 +211,59 @@ func readMetaObject(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	w.Write(o)
+}
+
+// Read all metadata objects for a particular user
+func readAllMetaObjects(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Get user from query parameter
+	// TODO: get this from auth token instead
+	user := r.URL.Query().Get("user")
+	if user == "" {
+		http.Error(w, "user parameter is required", http.StatusBadRequest)
+		return
+	}
+
+	// Read the user index to get all object IDs
+	uKey := NewDBKey(User, user)
+	objectMapJSON, err := DBInst.Read(uKey)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("User %s not found or has no objects", user), http.StatusNotFound)
+		return
+	}
+
+	// Parse the user index (map of filename -> object ID)
+	objectMap := make(map[string]string)
+	if err := json.Unmarshal(objectMapJSON, &objectMap); err != nil {
+		http.Error(w, "Failed to parse user index", http.StatusInternalServerError)
+		return
+	}
+
+	// Retrieve all metadata objects for this user
+	metaObjects := make([]MetaObject, 0, len(objectMap))
+	for _, objID := range objectMap {
+		var metaObject MetaObject
+		metaObject.ID = objID
+		if err := metaObject.Read(); err != nil {
+			log.Printf("Warning: Failed to read object %s for user %s: %v", objID, user, err)
+			continue // Skip objects that can't be read
+		}
+		metaObjects = append(metaObjects, metaObject)
+	}
+
+	// Return the array of metadata objects
+	w.Header().Set("Content-Type", "application/json")
+	response, err := json.Marshal(metaObjects)
+	if err != nil {
+		http.Error(w, "Failed to marshal response", http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	w.Write(response)
 }
 
 func runGc(w http.ResponseWriter, r *http.Request) {
