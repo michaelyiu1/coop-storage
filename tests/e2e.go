@@ -21,10 +21,12 @@ type OSDGuide struct {
 
 var (
 	METASERVERBASE = "http://localhost:7678"
-	FILENAME       = "test.txt"
-	TESTDATADIR    = "./data"
-	FILEPATH       = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)
-	TESTUSER       = "placeholder"
+
+	FILENAME    = "test.txt"
+	TESTDATADIR = "./data"
+	FILEPATH    = fmt.Sprintf("%s/%s", TESTDATADIR, FILENAME)
+	TESTUSER    = "user_id placeholder"
+	// FILESIZE       = "filesize placeholder"
 )
 
 func main() {
