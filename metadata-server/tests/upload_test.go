@@ -27,7 +27,7 @@ func (m *mockUploader) PresignUpload(_ context.Context, _, _ string, _ int64) (s
 func newTestServer(t *testing.T, uploader handler.Uploader) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	handler.NewUploadHandler(uploader).Register("/upload", mux)
+	handler.NewUploadHandler(uploader)
 	return httptest.NewServer(mux)
 }
 

@@ -26,7 +26,7 @@ func (m *mockDownloader) PresignDownload(_ context.Context, _ string) (string, t
 func newDownloadTestServer(t *testing.T, dl handler.Downloader) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	handler.NewDownloadHandler(dl).Register(mux)
+	handler.NewDownloadHandler(dl)
 	return httptest.NewServer(mux)
 }
 
