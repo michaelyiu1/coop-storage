@@ -13,14 +13,18 @@ A file metadata store built on BadgerDB (LSM-tree key-value store) with RustFS a
 
 ## Setup
 
-### 1. Clone and enter the repo
+### 1. Start Docker Desktop
+
+Open the Docker Desktop application and wait until the whale icon in the taskbar stops animating (this means the engine is ready). All subsequent commands require Docker to be running.
+
+### 2. Clone and enter the repo
 
 ```bash
 git clone https://github.com/michaelyiu1/coop-storage.git
 cd coop-storage
 ```
 
-### 2. Start the containers
+### 3. Start the containers
 
 ```bash
 cd devops
@@ -32,7 +36,7 @@ This starts:
 - `metadata-server` on port `7678`
 - `osd-server` (RustFS) on port `9000` (S3 API) and `9001` (web console)
 
-### 3. Create the bucket
+### 4. Create the bucket
 
 Open [http://localhost:9001](http://localhost:9001) in your browser and log in with:
 
@@ -41,7 +45,7 @@ Open [http://localhost:9001](http://localhost:9001) in your browser and log in w
 
 Create a bucket named `tests`.
 
-### 4. Verify the server is healthy
+### 5. Verify the server is healthy
 
 ```bash
 curl http://localhost:7678/health
